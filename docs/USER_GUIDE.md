@@ -45,6 +45,8 @@ After logging in as admin, you can:
 - Add perfume products
 - Edit existing products
 - Delete products
+- Add, rename, and delete selectable notes
+- Search and select notes for top, middle, and base note fields
 - Select product images from the device gallery
 
 Products are stored in memory for this simple app version, so changes are local to the running app session.

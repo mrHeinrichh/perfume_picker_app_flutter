@@ -10,8 +10,10 @@ A modern Flutter perfume browsing and chooser app. Users can browse perfumes, fi
 - Filter by top notes, middle notes, and base notes.
 - Results page ranks perfumes from highest filter match count to lowest.
 - Perfume detail page shows image, description, gender, characteristics, and notes.
+- Editable notes catalog for admin users.
 - Admin-only product management with create, edit, and delete.
 - Admin can choose product images from the device gallery.
+- Add/edit product uses searchable note selectors for top, middle, and base notes.
 - Optional biometric or Face ID shortcut for admin login.
 - Clean modern UI with animations.
 
@@ -89,7 +91,7 @@ lib/
   catalog.dart      Hard-coded perfume product data
   main.dart         App UI, pages, filters, CRUD screens, navigation
   models.dart       Product and filter models
-  store.dart        In-memory product store
+  store.dart        In-memory product and notes store
 
 assets/images/perfumes/
   Real perfume product images used by the catalog

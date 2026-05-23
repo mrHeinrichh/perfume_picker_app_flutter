@@ -20,7 +20,7 @@ const fragranceCharacteristicOptions = [
   'Powdery',
 ];
 
-const noteFilterOptions = [
+const defaultNoteOptions = [
   'Bergamot',
   'Grapefruit',
   'Lemon',
@@ -45,6 +45,8 @@ const noteFilterOptions = [
   'Wild strawberry',
 ];
 
+const noteFilterOptions = defaultNoteOptions;
+
 const filterGroups = <FilterGroup>[
   FilterGroup(
     title: 'Male / Female / Unisex',
@@ -63,10 +65,40 @@ const filterGroups = <FilterGroup>[
   ),
 ];
 
+List<FilterGroup> filterGroupsForNotes(List<String> noteOptions) {
+  return [
+    const FilterGroup(
+      title: 'Male / Female / Unisex',
+      icon: Icons.wc_outlined,
+      options: genderOptions,
+    ),
+    const FilterGroup(
+      title: 'Fragrance characteristics',
+      icon: Icons.auto_awesome_outlined,
+      options: fragranceCharacteristicOptions,
+    ),
+    FilterGroup(
+      title: 'Notes',
+      icon: Icons.blur_on_rounded,
+      options: noteOptions,
+    ),
+  ];
+}
+
 List<String> get allFilterOptions => filterGroups
     .expand((group) => group.options)
     .toSet()
     .toList(growable: false);
+
+List<String> defaultEditableNoteOptions() {
+  final notes = <String>{...defaultNoteOptions};
+  for (final product in defaultProducts) {
+    notes.addAll(product.notes);
+  }
+
+  return notes.toList(growable: false)
+    ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+}
 
 const defaultProducts = <PerfumeProduct>[
   PerfumeProduct(

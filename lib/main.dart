@@ -8,7 +8,8 @@ import 'catalog.dart';
 import 'models.dart';
 import 'store.dart';
 
-export 'catalog.dart' show defaultProducts, filterGroups, genderOptions;
+export 'catalog.dart'
+    show defaultNoteOptions, defaultProducts, filterGroups, genderOptions;
 export 'models.dart' show PerfumeMatch, PerfumeProduct, rankPerfumes;
 export 'auth_store.dart' show AuthStore, UserRole;
 
@@ -467,6 +468,7 @@ class _LandingPageState extends State<LandingPage> {
     final store = PerfumeScope.watch(context);
     final auth = AuthScope.watch(context);
     final theme = Theme.of(context);
+    final groups = filterGroupsForNotes(store.noteOptions);
     final canManageProducts = auth.isAdmin;
     final account = auth.currentAccount;
     final accountLabel = canManageProducts
@@ -495,20 +497,23 @@ class _LandingPageState extends State<LandingPage> {
                       onAdd: canManageProducts
                           ? () => showProductEditor(context)
                           : null,
+                      onManageNotes: canManageProducts
+                          ? () => showNoteManager(context)
+                          : null,
                     ),
                   ),
                 ),
                 SliverList.separated(
-                  itemCount: filterGroups.length,
+                  itemCount: groups.length,
                   separatorBuilder: (_, _) => const SizedBox(height: 14),
                   itemBuilder: (context, index) {
-                    final group = filterGroups[index];
+                    final group = groups[index];
                     return Padding(
                       padding: EdgeInsets.fromLTRB(
                         20,
                         index == 0 ? 8 : 0,
                         20,
-                        index == filterGroups.length - 1 ? 118 : 0,
+                        index == groups.length - 1 ? 118 : 0,
                       ),
                       child: _AnimatedEntry(
                         delay: Duration(milliseconds: 90 + index * 55),
@@ -563,6 +568,13 @@ class _LandingPageState extends State<LandingPage> {
                       icon: const Icon(Icons.add_rounded),
                     ),
                     const SizedBox(width: 10),
+                    IconButton.filledTonal(
+                      key: const ValueKey('manage-notes-button'),
+                      tooltip: 'Manage notes',
+                      onPressed: () => showNoteManager(context),
+                      icon: const Icon(Icons.edit_note_rounded),
+                    ),
+                    const SizedBox(width: 10),
                   ] else ...[
                     IconButton.filledTonal(
                       key: const ValueKey('admin-login-button'),
@@ -615,6 +627,7 @@ class _LandingHeader extends StatelessWidget {
     required this.accountLabel,
     required this.onAdminLogin,
     required this.onAdd,
+    required this.onManageNotes,
   });
 
   final int productCount;
@@ -622,6 +635,7 @@ class _LandingHeader extends StatelessWidget {
   final String accountLabel;
   final VoidCallback? onAdminLogin;
   final VoidCallback? onAdd;
+  final VoidCallback? onManageNotes;
 
   @override
   Widget build(BuildContext context) {
@@ -700,6 +714,13 @@ class _LandingHeader extends StatelessWidget {
                       onPressed: onAdd,
                       icon: const Icon(Icons.add_rounded),
                       label: const Text('Add product'),
+                    ),
+                  if (onManageNotes != null)
+                    FilledButton.tonalIcon(
+                      key: const ValueKey('header-manage-notes-button'),
+                      onPressed: onManageNotes,
+                      icon: const Icon(Icons.edit_note_rounded),
+                      label: const Text('Manage notes'),
                     ),
                 ],
               ),
@@ -1889,10 +1910,10 @@ class _ProductEditorSheetState extends State<ProductEditorSheet> {
   final ImagePicker _imagePicker = ImagePicker();
   late final TextEditingController _nameController;
   late final TextEditingController _descriptionController;
-  late final TextEditingController _topNotesController;
-  late final TextEditingController _middleNotesController;
-  late final TextEditingController _baseNotesController;
   late final Set<String> _fragranceCharacteristics;
+  late final Set<String> _topNotes;
+  late final Set<String> _middleNotes;
+  late final Set<String> _baseNotes;
   late String _selectedGender;
   Uint8List? _imageBytes;
 
@@ -1907,24 +1928,15 @@ class _ProductEditorSheetState extends State<ProductEditorSheet> {
     _imageBytes = product?.imageBytes;
     _selectedGender = product?.gender ?? genderOptions.first;
     _fragranceCharacteristics = {...?product?.fragranceCharacteristics};
-    _topNotesController = TextEditingController(
-      text: product == null ? '' : joinCommaList(product.topNotes),
-    );
-    _middleNotesController = TextEditingController(
-      text: product == null ? '' : joinCommaList(product.middleNotes),
-    );
-    _baseNotesController = TextEditingController(
-      text: product == null ? '' : joinCommaList(product.baseNotes),
-    );
+    _topNotes = {...?product?.topNotes};
+    _middleNotes = {...?product?.middleNotes};
+    _baseNotes = {...?product?.baseNotes};
   }
 
   @override
   void dispose() {
     _nameController.dispose();
     _descriptionController.dispose();
-    _topNotesController.dispose();
-    _middleNotesController.dispose();
-    _baseNotesController.dispose();
     super.dispose();
   }
 
@@ -1934,6 +1946,14 @@ class _ProductEditorSheetState extends State<ProductEditorSheet> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Choose at least one fragrance characteristic.'),
+        ),
+      );
+      return;
+    }
+    if (_topNotes.isEmpty || _middleNotes.isEmpty || _baseNotes.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Choose at least one note for top, mid, and base.'),
         ),
       );
       return;
@@ -1954,9 +1974,9 @@ class _ProductEditorSheetState extends State<ProductEditorSheet> {
         imageBytes: _imageBytes,
         gender: _selectedGender,
         fragranceCharacteristics: _fragranceCharacteristics.toList()..sort(),
-        topNotes: splitCommaList(_topNotesController.text),
-        middleNotes: splitCommaList(_middleNotesController.text),
-        baseNotes: splitCommaList(_baseNotesController.text),
+        topNotes: _topNotes.toList(growable: false),
+        middleNotes: _middleNotes.toList(growable: false),
+        baseNotes: _baseNotes.toList(growable: false),
         accent: accent,
         glow: glow,
       ),
@@ -2004,6 +2024,7 @@ class _ProductEditorSheetState extends State<ProductEditorSheet> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final store = PerfumeScope.watch(context);
     final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
     final editing = widget.product != null;
 
@@ -2150,25 +2171,46 @@ class _ProductEditorSheetState extends State<ProductEditorSheet> {
                     }).toList(),
                   ),
                   const SizedBox(height: 18),
-                  _EditorTextField(
-                    controller: _topNotesController,
-                    label: 'Top notes, comma separated',
+                  _NoteSelectField(
+                    title: 'Top notes',
                     icon: Icons.blur_on_rounded,
-                    requiredField: true,
+                    selectedNotes: _topNotes,
+                    options: store.noteOptions,
+                    onChanged: (notes) {
+                      setState(() {
+                        _topNotes
+                          ..clear()
+                          ..addAll(notes);
+                      });
+                    },
                   ),
                   const SizedBox(height: 12),
-                  _EditorTextField(
-                    controller: _middleNotesController,
-                    label: 'Mid notes, comma separated',
+                  _NoteSelectField(
+                    title: 'Mid notes',
                     icon: Icons.local_florist_outlined,
-                    requiredField: true,
+                    selectedNotes: _middleNotes,
+                    options: store.noteOptions,
+                    onChanged: (notes) {
+                      setState(() {
+                        _middleNotes
+                          ..clear()
+                          ..addAll(notes);
+                      });
+                    },
                   ),
                   const SizedBox(height: 12),
-                  _EditorTextField(
-                    controller: _baseNotesController,
-                    label: 'Base notes, comma separated',
+                  _NoteSelectField(
+                    title: 'Base notes',
                     icon: Icons.layers_outlined,
-                    requiredField: true,
+                    selectedNotes: _baseNotes,
+                    options: store.noteOptions,
+                    onChanged: (notes) {
+                      setState(() {
+                        _baseNotes
+                          ..clear()
+                          ..addAll(notes);
+                      });
+                    },
                   ),
                   const SizedBox(height: 22),
                   FilledButton.icon(
@@ -2315,6 +2357,607 @@ class _EditorTextField extends StatelessWidget {
               return null;
             }
           : null,
+    );
+  }
+}
+
+class _NoteSelectField extends StatelessWidget {
+  const _NoteSelectField({
+    required this.title,
+    required this.icon,
+    required this.selectedNotes,
+    required this.options,
+    required this.onChanged,
+  });
+
+  final String title;
+  final IconData icon;
+  final Set<String> selectedNotes;
+  final List<String> options;
+  final ValueChanged<Set<String>> onChanged;
+
+  Future<void> _openPicker(BuildContext context) async {
+    final notes = await showModalBottomSheet<Set<String>>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _NotePickerSheet(
+        title: title,
+        icon: icon,
+        selectedNotes: selectedNotes,
+        initialOptions: options,
+      ),
+    );
+
+    if (notes != null) onChanged(notes);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final hasSelection = selectedNotes.isNotEmpty;
+
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        key: ValueKey('note-select-$title'),
+        borderRadius: BorderRadius.circular(20),
+        onTap: () => _openPicker(context),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: const Color(0xFFD8D0C4)),
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(icon, color: theme.colorScheme.primary),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(title, style: theme.textTheme.titleMedium),
+                  ),
+                  Icon(
+                    Icons.keyboard_arrow_down_rounded,
+                    color: Colors.black.withValues(alpha: .56),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              if (hasSelection)
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: selectedNotes
+                      .map(
+                        (note) => _MiniChip(
+                          label: note,
+                          background: const Color(0xFFEAF3EE),
+                          foreground: theme.colorScheme.primary,
+                        ),
+                      )
+                      .toList(growable: false),
+                )
+              else
+                Text(
+                  'Search and select notes',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: Colors.black.withValues(alpha: .56),
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _NotePickerSheet extends StatefulWidget {
+  const _NotePickerSheet({
+    required this.title,
+    required this.icon,
+    required this.selectedNotes,
+    required this.initialOptions,
+  });
+
+  final String title;
+  final IconData icon;
+  final Set<String> selectedNotes;
+  final List<String> initialOptions;
+
+  @override
+  State<_NotePickerSheet> createState() => _NotePickerSheetState();
+}
+
+class _NotePickerSheetState extends State<_NotePickerSheet> {
+  late final TextEditingController _searchController;
+  late final Set<String> _selectedNotes;
+  String _query = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _searchController = TextEditingController();
+    _selectedNotes = {...widget.selectedNotes};
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _toggle(String note) {
+    setState(() {
+      if (_selectedNotes.any((item) => _sameNoteLabel(item, note))) {
+        _selectedNotes.removeWhere((item) => _sameNoteLabel(item, note));
+      } else {
+        _selectedNotes.add(note);
+      }
+    });
+  }
+
+  void _addSearchedNote() {
+    final note = _cleanNoteLabel(_query);
+    if (note.isEmpty) return;
+
+    final store = PerfumeScope.read(context);
+    store.addNote(note);
+    setState(() {
+      _selectedNotes.add(note);
+      _query = '';
+      _searchController.clear();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final store = PerfumeScope.watch(context);
+    final theme = Theme.of(context);
+    final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
+    final options = _mergeNoteOptions([
+      ...widget.initialOptions,
+      ...store.noteOptions,
+      ..._selectedNotes,
+    ]);
+    final visibleOptions = options
+        .where((note) => note.toLowerCase().contains(_query.toLowerCase()))
+        .toList(growable: false);
+    final canAdd =
+        _cleanNoteLabel(_query).isNotEmpty &&
+        !options.any((note) => _sameNoteLabel(note, _query));
+
+    return AnimatedPadding(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOut,
+      padding: EdgeInsets.only(bottom: bottomInset),
+      child: DraggableScrollableSheet(
+        initialChildSize: .78,
+        minChildSize: .45,
+        maxChildSize: .94,
+        expand: false,
+        builder: (context, controller) {
+          return Container(
+            decoration: const BoxDecoration(
+              color: Color(0xFFFFFCF6),
+              borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+            ),
+            child: Column(
+              children: [
+                const SizedBox(height: 12),
+                Container(
+                  width: 48,
+                  height: 5,
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: .16),
+                    borderRadius: BorderRadius.circular(100),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 18, 20, 12),
+                  child: Column(
+                    children: [
+                      Row(
+                        children: [
+                          Icon(widget.icon, color: theme.colorScheme.primary),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              'Select ${widget.title.toLowerCase()}',
+                              style: theme.textTheme.headlineMedium,
+                            ),
+                          ),
+                          IconButton.filledTonal(
+                            onPressed: () => Navigator.of(context).pop(),
+                            icon: const Icon(Icons.close_rounded),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 14),
+                      TextField(
+                        key: ValueKey('note-search-${widget.title}'),
+                        controller: _searchController,
+                        decoration: InputDecoration(
+                          labelText: 'Search notes',
+                          prefixIcon: const Icon(Icons.search_rounded),
+                          suffixIcon: _query.isEmpty
+                              ? null
+                              : IconButton(
+                                  tooltip: 'Clear search',
+                                  onPressed: () {
+                                    setState(() {
+                                      _query = '';
+                                      _searchController.clear();
+                                    });
+                                  },
+                                  icon: const Icon(Icons.close_rounded),
+                                ),
+                        ),
+                        onChanged: (value) => setState(() => _query = value),
+                      ),
+                      if (canAdd) ...[
+                        const SizedBox(height: 10),
+                        SizedBox(
+                          width: double.infinity,
+                          child: FilledButton.tonalIcon(
+                            onPressed: _addSearchedNote,
+                            icon: const Icon(Icons.add_rounded),
+                            label: Text('Add "$_query" to notes list'),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: visibleOptions.isEmpty
+                      ? Center(
+                          child: Text(
+                            'No notes found',
+                            style: theme.textTheme.titleMedium,
+                          ),
+                        )
+                      : ListView.separated(
+                          controller: controller,
+                          padding: const EdgeInsets.fromLTRB(20, 0, 20, 10),
+                          itemCount: visibleOptions.length,
+                          separatorBuilder: (_, _) => const SizedBox(height: 8),
+                          itemBuilder: (context, index) {
+                            final note = visibleOptions[index];
+                            final selected = _selectedNotes.any(
+                              (item) => _sameNoteLabel(item, note),
+                            );
+
+                            return CheckboxListTile(
+                              key: ValueKey('note-option-$note'),
+                              value: selected,
+                              onChanged: (_) => _toggle(note),
+                              title: Text(note),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              tileColor: Colors.white,
+                              activeColor: theme.colorScheme.primary,
+                              checkboxShape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                            );
+                          },
+                        ),
+                ),
+                SafeArea(
+                  top: false,
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 12, 20, 18),
+                    child: FilledButton.icon(
+                      onPressed: () {
+                        Navigator.of(context).pop(
+                          _mergeNoteOptions(_selectedNotes.toList()).toSet(),
+                        );
+                      },
+                      icon: const Icon(Icons.check_rounded),
+                      label: Text('Use ${_selectedNotes.length} notes'),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+class NoteManagerSheet extends StatefulWidget {
+  const NoteManagerSheet({super.key});
+
+  @override
+  State<NoteManagerSheet> createState() => _NoteManagerSheetState();
+}
+
+class _NoteManagerSheetState extends State<NoteManagerSheet> {
+  late final TextEditingController _addController;
+  late final TextEditingController _searchController;
+  String _query = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _addController = TextEditingController();
+    _searchController = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _addController.dispose();
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _showMessage(String message) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  void _addNote() {
+    final note = _cleanNoteLabel(_addController.text);
+    if (note.isEmpty) return;
+
+    final added = PerfumeScope.read(context).addNote(note);
+    if (!added) {
+      _showMessage('$note is already in the notes list.');
+      return;
+    }
+
+    _addController.clear();
+    _showMessage('$note added.');
+  }
+
+  Future<void> _renameNote(String note) async {
+    final controller = TextEditingController(text: note);
+    final nextNote = await showDialog<String>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Rename note'),
+          content: TextField(
+            controller: controller,
+            autofocus: true,
+            decoration: const InputDecoration(labelText: 'Note name'),
+            textInputAction: TextInputAction.done,
+            onSubmitted: (value) => Navigator.of(context).pop(value),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(controller.text),
+              child: const Text('Save'),
+            ),
+          ],
+        );
+      },
+    );
+    controller.dispose();
+
+    if (!mounted) return;
+    if (nextNote == null) return;
+    final cleaned = _cleanNoteLabel(nextNote);
+    if (cleaned.isEmpty) return;
+
+    final renamed = PerfumeScope.read(context).renameNote(note, cleaned);
+    if (!renamed) {
+      _showMessage('Could not rename note. It may already exist.');
+      return;
+    }
+
+    _showMessage('$note renamed to $cleaned.');
+  }
+
+  Future<void> _deleteNote(String note) async {
+    final store = PerfumeScope.read(context);
+    final usageCount = store.noteUsageCount(note);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Delete note?'),
+          content: Text(
+            usageCount == 0
+                ? '$note will be removed from the selectable notes list.'
+                : '$note is used by $usageCount product(s). Deleting it also removes it from those products.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Delete'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (!mounted) return;
+    if (confirmed != true) return;
+    store.deleteNote(note);
+    _showMessage('$note deleted.');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final store = PerfumeScope.watch(context);
+    final theme = Theme.of(context);
+    final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
+    final visibleNotes = store.noteOptions
+        .where((note) => note.toLowerCase().contains(_query.toLowerCase()))
+        .toList(growable: false);
+
+    return AnimatedPadding(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOut,
+      padding: EdgeInsets.only(bottom: bottomInset),
+      child: DraggableScrollableSheet(
+        initialChildSize: .86,
+        minChildSize: .56,
+        maxChildSize: .96,
+        expand: false,
+        builder: (context, controller) {
+          return Container(
+            decoration: const BoxDecoration(
+              color: Color(0xFFFFFCF6),
+              borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+            ),
+            child: Column(
+              children: [
+                const SizedBox(height: 12),
+                Container(
+                  width: 48,
+                  height: 5,
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: .16),
+                    borderRadius: BorderRadius.circular(100),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 18, 20, 12),
+                  child: Column(
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.edit_note_rounded,
+                            color: theme.colorScheme.primary,
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              'Manage notes',
+                              style: theme.textTheme.headlineMedium,
+                            ),
+                          ),
+                          IconButton.filledTonal(
+                            onPressed: () => Navigator.of(context).pop(),
+                            icon: const Icon(Icons.close_rounded),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              key: const ValueKey('note-add-field'),
+                              controller: _addController,
+                              decoration: const InputDecoration(
+                                labelText: 'Add a new note',
+                                prefixIcon: Icon(Icons.add_rounded),
+                              ),
+                              textInputAction: TextInputAction.done,
+                              onSubmitted: (_) => _addNote(),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          IconButton.filled(
+                            key: const ValueKey('note-add-button'),
+                            tooltip: 'Add note',
+                            onPressed: _addNote,
+                            icon: const Icon(Icons.check_rounded),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        key: const ValueKey('note-manager-search'),
+                        controller: _searchController,
+                        decoration: InputDecoration(
+                          labelText: 'Search notes',
+                          prefixIcon: const Icon(Icons.search_rounded),
+                          suffixIcon: _query.isEmpty
+                              ? null
+                              : IconButton(
+                                  tooltip: 'Clear search',
+                                  onPressed: () {
+                                    setState(() {
+                                      _query = '';
+                                      _searchController.clear();
+                                    });
+                                  },
+                                  icon: const Icon(Icons.close_rounded),
+                                ),
+                        ),
+                        onChanged: (value) => setState(() => _query = value),
+                      ),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: visibleNotes.isEmpty
+                      ? Center(
+                          child: Text(
+                            'No notes found',
+                            style: theme.textTheme.titleMedium,
+                          ),
+                        )
+                      : ListView.separated(
+                          controller: controller,
+                          padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+                          itemCount: visibleNotes.length,
+                          separatorBuilder: (_, _) => const SizedBox(height: 8),
+                          itemBuilder: (context, index) {
+                            final note = visibleNotes[index];
+                            final usageCount = store.noteUsageCount(note);
+
+                            return ListTile(
+                              key: ValueKey('managed-note-$note'),
+                              tileColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              title: Text(note),
+                              subtitle: Text(
+                                usageCount == 0
+                                    ? 'Not used yet'
+                                    : 'Used by $usageCount product(s)',
+                              ),
+                              trailing: Wrap(
+                                spacing: 4,
+                                children: [
+                                  IconButton(
+                                    tooltip: 'Rename note',
+                                    onPressed: () => _renameNote(note),
+                                    icon: const Icon(Icons.edit_outlined),
+                                  ),
+                                  IconButton(
+                                    tooltip: 'Delete note',
+                                    onPressed: () => _deleteNote(note),
+                                    icon: const Icon(Icons.delete_outline),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
     );
   }
 }
@@ -2501,6 +3144,25 @@ class _EmptyProducts extends StatelessWidget {
 
 enum _ProductAction { edit, delete }
 
+String _cleanNoteLabel(String note) {
+  return note.trim().replaceAll(RegExp(r'\s+'), ' ');
+}
+
+bool _sameNoteLabel(String a, String b) {
+  return _cleanNoteLabel(a).toLowerCase() == _cleanNoteLabel(b).toLowerCase();
+}
+
+List<String> _mergeNoteOptions(List<String> notes) {
+  final unique = <String>[];
+  for (final note in notes.map(_cleanNoteLabel)) {
+    if (note.isEmpty || unique.any((item) => _sameNoteLabel(item, note))) {
+      continue;
+    }
+    unique.add(note);
+  }
+  return unique..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+}
+
 Future<bool> showAdminLogin(BuildContext context) async {
   if (AuthScope.read(context).isAdmin) return true;
 
@@ -2513,6 +3175,23 @@ Future<bool> showAdminLogin(BuildContext context) async {
   );
 
   return unlocked == true;
+}
+
+Future<void> showNoteManager(BuildContext context) async {
+  if (!AuthScope.read(context).isAdmin) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Admin access is required.')));
+    return;
+  }
+
+  await showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    useSafeArea: true,
+    backgroundColor: Colors.transparent,
+    builder: (_) => const NoteManagerSheet(),
+  );
 }
 
 Future<void> showProductEditor(

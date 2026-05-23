@@ -31,7 +31,36 @@ void main() {
     expect(store.byId('test-product'), isNull);
   });
 
+  test('PerfumeStore can add, rename, and delete editable notes', () {
+    final store = PerfumeStore();
+    final product = defaultProducts.first.copyWith(
+      id: 'note-test-product',
+      topNotes: ['Custom citrus'],
+      middleNotes: ['Jasmine'],
+      baseNotes: ['Musk'],
+    );
+
+    expect(store.addNote('Custom citrus'), isTrue);
+    expect(store.addNote(' custom   citrus '), isFalse);
+
+    store.add(product);
+    expect(store.noteUsageCount('custom citrus'), 1);
+
+    expect(store.renameNote('Custom citrus', 'Sparkling citrus'), isTrue);
+    expect(store.noteOptions, contains('Sparkling citrus'));
+    expect(store.byId(product.id)?.topNotes, contains('Sparkling citrus'));
+
+    expect(store.deleteNote('Sparkling citrus'), isTrue);
+    expect(store.noteOptions, isNot(contains('Sparkling citrus')));
+    expect(
+      store.byId(product.id)?.topNotes,
+      isNot(contains('Sparkling citrus')),
+    );
+  });
+
   test('default products include top, middle, and base notes', () {
+    expect(PerfumeStore().noteOptions, contains('Bergamot'));
+
     for (final product in defaultProducts) {
       expect(product.topNotes, isNotEmpty, reason: product.name);
       expect(product.middleNotes, isNotEmpty, reason: product.name);
