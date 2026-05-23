@@ -516,10 +516,6 @@ class _LandingPageState extends State<LandingPage> {
                       onManageNotes: canManageProducts
                           ? () => showNoteManager(context)
                           : null,
-                      dummyDataEnabled: store.dummyDataEnabled,
-                      onDummyDataChanged: canManageProducts
-                          ? _setDummyDataEnabled
-                          : null,
                     ),
                   ),
                 ),
@@ -662,8 +658,6 @@ class _LandingHeader extends StatelessWidget {
     required this.onAdminLogin,
     required this.onAdd,
     required this.onManageNotes,
-    required this.dummyDataEnabled,
-    required this.onDummyDataChanged,
   });
 
   final int productCount;
@@ -672,8 +666,6 @@ class _LandingHeader extends StatelessWidget {
   final VoidCallback? onAdminLogin;
   final VoidCallback? onAdd;
   final VoidCallback? onManageNotes;
-  final bool dummyDataEnabled;
-  final ValueChanged<bool>? onDummyDataChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -760,11 +752,6 @@ class _LandingHeader extends StatelessWidget {
                       icon: const Icon(Icons.edit_note_rounded),
                       label: const Text('Manage notes'),
                     ),
-                  if (onDummyDataChanged != null)
-                    _DummyDataToggle(
-                      enabled: dummyDataEnabled,
-                      onChanged: onDummyDataChanged!,
-                    ),
                 ],
               ),
             ],
@@ -789,48 +776,6 @@ class _LandingHeader extends StatelessWidget {
             ],
           );
         },
-      ),
-    );
-  }
-}
-
-class _DummyDataToggle extends StatelessWidget {
-  const _DummyDataToggle({required this.enabled, required this.onChanged});
-
-  final bool enabled;
-  final ValueChanged<bool> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: .1),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: Colors.white.withValues(alpha: .12)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            enabled ? Icons.dataset_outlined : Icons.dataset_linked_outlined,
-            color: const Color(0xFFCFF3E8),
-          ),
-          const SizedBox(width: 8),
-          Text(
-            'Dummy data',
-            style: Theme.of(context).textTheme.labelLarge?.copyWith(
-              color: Colors.white,
-              fontWeight: FontWeight.w900,
-            ),
-          ),
-          const SizedBox(width: 8),
-          Switch.adaptive(
-            value: enabled,
-            onChanged: onChanged,
-            activeThumbColor: const Color(0xFFCFF3E8),
-          ),
-        ],
       ),
     );
   }
@@ -884,60 +829,37 @@ class _AdminToolsPanel extends StatelessWidget {
               Expanded(
                 child: Text('Admin tools', style: theme.textTheme.titleMedium),
               ),
-              _Pill(
+            ],
+          ),
+
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              _MiniChip(
                 icon: Icons.inventory_2_outlined,
                 label: '$productCount products',
                 foreground: theme.colorScheme.primary,
                 background: theme.colorScheme.primary.withValues(alpha: .1),
               ),
+              _MiniChip(
+                icon: Icons.edit_note_rounded,
+                label: '$noteCount notes',
+                foreground: theme.colorScheme.secondary,
+                background: theme.colorScheme.secondary.withValues(alpha: .12),
+              ),
+              _MiniSwitchChip(
+                label: 'Dummy data',
+                enabled: dummyDataEnabled,
+                onChanged: onDummyDataChanged,
+                foreground: const Color(0xFF2F6B5F),
+                background: const Color(0xFFEAF3EE),
+              ),
             ],
           ),
-          const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF6F0E8),
-              borderRadius: BorderRadius.circular(18),
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  dummyDataEnabled
-                      ? Icons.toggle_on_outlined
-                      : Icons.toggle_off_outlined,
-                  color: theme.colorScheme.primary,
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'Dummy data',
-                        style: theme.textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                      Text(
-                        dummyDataEnabled
-                            ? 'Demo products and notes are visible'
-                            : 'Demo products and notes are hidden',
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: Colors.black.withValues(alpha: .58),
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                Switch.adaptive(
-                  key: const ValueKey('admin-dummy-data-toggle'),
-                  value: dummyDataEnabled,
-                  onChanged: onDummyDataChanged,
-                ),
-              ],
-            ),
-          ),
+
           const SizedBox(height: 12),
           Wrap(
             spacing: 10,
@@ -3308,6 +3230,67 @@ class _MiniChip extends StatelessWidget {
               fontWeight: FontWeight.w900,
               fontSize: 12,
               letterSpacing: 0,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MiniSwitchChip extends StatelessWidget {
+  const _MiniSwitchChip({
+    required this.label,
+    required this.enabled,
+    required this.onChanged,
+    required this.background,
+    required this.foreground,
+  });
+
+  final String label;
+  final bool enabled;
+  final ValueChanged<bool> onChanged;
+  final Color background;
+  final Color foreground;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.fromLTRB(10, 4, 5, 4),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            enabled ? Icons.toggle_on_outlined : Icons.toggle_off_outlined,
+            size: 15,
+            color: foreground,
+          ),
+          const SizedBox(width: 5),
+          Text(
+            label,
+            style: TextStyle(
+              color: foreground,
+              fontWeight: FontWeight.w900,
+              fontSize: 12,
+              letterSpacing: 0,
+            ),
+          ),
+          const SizedBox(width: 4),
+          SizedBox(
+            width: 40,
+            height: 28,
+            child: FittedBox(
+              fit: BoxFit.contain,
+              child: Switch.adaptive(
+                key: const ValueKey('admin-dummy-data-toggle'),
+                value: enabled,
+                onChanged: onChanged,
+                activeThumbColor: foreground,
+              ),
             ),
           ),
         ],
