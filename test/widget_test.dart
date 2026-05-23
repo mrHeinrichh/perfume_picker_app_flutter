@@ -42,6 +42,7 @@ void main() {
 
     expect(store.addNote('Custom citrus'), isTrue);
     expect(store.addNote(' custom   citrus '), isFalse);
+    expect(store.addNote('This note is way too long'), isFalse);
 
     store.add(product);
     expect(store.noteUsageCount('custom citrus'), 1);
@@ -56,6 +57,32 @@ void main() {
       store.byId(product.id)?.topNotes,
       isNot(contains('Sparkling citrus')),
     );
+  });
+
+  test('PerfumeStore can toggle dummy data on and off', () {
+    final store = PerfumeStore();
+
+    expect(store.dummyDataEnabled, isTrue);
+    expect(store.products, isNotEmpty);
+    expect(store.noteOptions, isNotEmpty);
+    expect(genderOptions, ['Male', 'Female', 'Unisex']);
+    expect(fragranceCharacteristicOptions, contains('Woody'));
+
+    store.setDummyDataEnabled(false);
+    expect(store.dummyDataEnabled, isFalse);
+    expect(store.products, isEmpty);
+    expect(store.noteOptions, isEmpty);
+    expect(genderOptions, ['Male', 'Female', 'Unisex']);
+    expect(fragranceCharacteristicOptions, contains('Woody'));
+
+    expect(store.addNote('Neroli'), isTrue);
+    expect(store.noteOptions, ['Neroli']);
+
+    store.setDummyDataEnabled(true);
+    expect(store.dummyDataEnabled, isTrue);
+    expect(store.products.length, defaultProducts.length);
+    expect(store.noteOptions, contains('Bergamot'));
+    expect(store.noteOptions, isNot(contains('Neroli')));
   });
 
   test('default products include top, middle, and base notes', () {

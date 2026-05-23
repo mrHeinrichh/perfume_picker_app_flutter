@@ -10,10 +10,13 @@ class PerfumeStore extends ChangeNotifier {
 
   List<PerfumeProduct> _products;
   List<String> _noteOptions;
+  bool _dummyDataEnabled = true;
 
   List<PerfumeProduct> get products => List.unmodifiable(_products);
 
   List<String> get noteOptions => List.unmodifiable(_noteOptions);
+
+  bool get dummyDataEnabled => _dummyDataEnabled;
 
   PerfumeProduct? byId(String id) {
     for (final product in _products) {
@@ -42,7 +45,7 @@ class PerfumeStore extends ChangeNotifier {
 
   bool addNote(String note) {
     final cleaned = _cleanNote(note);
-    if (cleaned.isEmpty || _containsNote(cleaned)) return false;
+    if (!_isValidNote(cleaned) || _containsNote(cleaned)) return false;
 
     _noteOptions = _sortNotes([..._noteOptions, cleaned]);
     notifyListeners();
@@ -52,7 +55,7 @@ class PerfumeStore extends ChangeNotifier {
   bool renameNote(String currentNote, String nextNote) {
     final current = _cleanNote(currentNote);
     final next = _cleanNote(nextNote);
-    if (current.isEmpty || next.isEmpty || !_containsNote(current)) {
+    if (!_isValidNote(next) || current.isEmpty || !_containsNote(current)) {
       return false;
     }
 
@@ -112,8 +115,23 @@ class PerfumeStore extends ChangeNotifier {
   }
 
   void reset() {
+    _dummyDataEnabled = true;
     _products = List<PerfumeProduct>.of(defaultProducts);
     _noteOptions = defaultEditableNoteOptions();
+    notifyListeners();
+  }
+
+  void setDummyDataEnabled(bool enabled) {
+    if (_dummyDataEnabled == enabled) return;
+
+    _dummyDataEnabled = enabled;
+    if (enabled) {
+      _products = List<PerfumeProduct>.of(defaultProducts);
+      _noteOptions = defaultEditableNoteOptions();
+    } else {
+      _products = [];
+      _noteOptions = [];
+    }
     notifyListeners();
   }
 
@@ -125,6 +143,10 @@ class PerfumeStore extends ChangeNotifier {
     return note.trim().replaceAll(RegExp(r'\s+'), ' ');
   }
 
+  static bool _isValidNote(String note) {
+    return note.isNotEmpty && note.length <= noteNameMaxLength;
+  }
+
   static bool _sameNote(String a, String b) {
     return _cleanNote(a).toLowerCase() == _cleanNote(b).toLowerCase();
   }
@@ -132,7 +154,7 @@ class PerfumeStore extends ChangeNotifier {
   static List<String> _sortNotes(List<String> notes) {
     final unique = <String>[];
     for (final note in notes.map(_cleanNote)) {
-      if (note.isEmpty || unique.any((item) => _sameNote(item, note))) {
+      if (!_isValidNote(note) || unique.any((item) => _sameNote(item, note))) {
         continue;
       }
       unique.add(note);
@@ -161,7 +183,7 @@ class PerfumeStore extends ChangeNotifier {
   static List<String> _dedupeNotes(List<String> notes) {
     final unique = <String>[];
     for (final note in notes.map(_cleanNote)) {
-      if (note.isEmpty || unique.any((item) => _sameNote(item, note))) {
+      if (!_isValidNote(note) || unique.any((item) => _sameNote(item, note))) {
         continue;
       }
       unique.add(note);

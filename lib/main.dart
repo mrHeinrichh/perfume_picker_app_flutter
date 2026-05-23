@@ -1,6 +1,5 @@
-import 'dart:typed_data';
-
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 
 import 'auth_store.dart';
@@ -9,7 +8,13 @@ import 'models.dart';
 import 'store.dart';
 
 export 'catalog.dart'
-    show defaultNoteOptions, defaultProducts, filterGroups, genderOptions;
+    show
+        defaultNoteOptions,
+        defaultProducts,
+        filterGroups,
+        fragranceCharacteristicOptions,
+        genderOptions,
+        noteNameMaxLength;
 export 'models.dart' show PerfumeMatch, PerfumeProduct, rankPerfumes;
 export 'auth_store.dart' show AuthStore, UserRole;
 
@@ -463,6 +468,17 @@ class _LandingPageState extends State<LandingPage> {
     ).push(_softRoute(ResultsPage(selectedFilters: Set.of(_selectedFilters))));
   }
 
+  void _setDummyDataEnabled(bool enabled) {
+    final store = PerfumeScope.read(context);
+    store.setDummyDataEnabled(enabled);
+    final validFilters = filterGroupsForNotes(
+      store.noteOptions,
+    ).expand((group) => group.options).toSet();
+    setState(() {
+      _selectedFilters.removeWhere((filter) => !validFilters.contains(filter));
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final store = PerfumeScope.watch(context);
@@ -499,6 +515,10 @@ class _LandingPageState extends State<LandingPage> {
                           : null,
                       onManageNotes: canManageProducts
                           ? () => showNoteManager(context)
+                          : null,
+                      dummyDataEnabled: store.dummyDataEnabled,
+                      onDummyDataChanged: canManageProducts
+                          ? _setDummyDataEnabled
                           : null,
                     ),
                   ),
@@ -575,6 +595,12 @@ class _LandingPageState extends State<LandingPage> {
                       icon: const Icon(Icons.edit_note_rounded),
                     ),
                     const SizedBox(width: 10),
+                    Switch.adaptive(
+                      key: const ValueKey('dummy-data-toggle'),
+                      value: store.dummyDataEnabled,
+                      onChanged: _setDummyDataEnabled,
+                    ),
+                    const SizedBox(width: 10),
                   ] else ...[
                     IconButton.filledTonal(
                       key: const ValueKey('admin-login-button'),
@@ -628,6 +654,8 @@ class _LandingHeader extends StatelessWidget {
     required this.onAdminLogin,
     required this.onAdd,
     required this.onManageNotes,
+    required this.dummyDataEnabled,
+    required this.onDummyDataChanged,
   });
 
   final int productCount;
@@ -636,6 +664,8 @@ class _LandingHeader extends StatelessWidget {
   final VoidCallback? onAdminLogin;
   final VoidCallback? onAdd;
   final VoidCallback? onManageNotes;
+  final bool dummyDataEnabled;
+  final ValueChanged<bool>? onDummyDataChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -722,6 +752,11 @@ class _LandingHeader extends StatelessWidget {
                       icon: const Icon(Icons.edit_note_rounded),
                       label: const Text('Manage notes'),
                     ),
+                  if (onDummyDataChanged != null)
+                    _DummyDataToggle(
+                      enabled: dummyDataEnabled,
+                      onChanged: onDummyDataChanged!,
+                    ),
                 ],
               ),
             ],
@@ -746,6 +781,48 @@ class _LandingHeader extends StatelessWidget {
             ],
           );
         },
+      ),
+    );
+  }
+}
+
+class _DummyDataToggle extends StatelessWidget {
+  const _DummyDataToggle({required this.enabled, required this.onChanged});
+
+  final bool enabled;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: Colors.white.withValues(alpha: .1),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: Colors.white.withValues(alpha: .12)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            enabled ? Icons.dataset_outlined : Icons.dataset_linked_outlined,
+            color: const Color(0xFFCFF3E8),
+          ),
+          const SizedBox(width: 8),
+          Text(
+            'Dummy data',
+            style: Theme.of(context).textTheme.labelLarge?.copyWith(
+              color: Colors.white,
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          const SizedBox(width: 8),
+          Switch.adaptive(
+            value: enabled,
+            onChanged: onChanged,
+            activeThumbColor: const Color(0xFFCFF3E8),
+          ),
+        ],
       ),
     );
   }
@@ -2507,9 +2584,16 @@ class _NotePickerSheetState extends State<_NotePickerSheet> {
   void _addSearchedNote() {
     final note = _cleanNoteLabel(_query);
     if (note.isEmpty) return;
+    if (note.length > noteNameMaxLength) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Notes can only be 20 characters long.')),
+      );
+      return;
+    }
 
     final store = PerfumeScope.read(context);
-    store.addNote(note);
+    final added = store.addNote(note);
+    if (!added) return;
     setState(() {
       _selectedNotes.add(note);
       _query = '';
@@ -2532,6 +2616,7 @@ class _NotePickerSheetState extends State<_NotePickerSheet> {
         .toList(growable: false);
     final canAdd =
         _cleanNoteLabel(_query).isNotEmpty &&
+        _cleanNoteLabel(_query).length <= noteNameMaxLength &&
         !options.any((note) => _sameNoteLabel(note, _query));
 
     return AnimatedPadding(
@@ -2584,6 +2669,8 @@ class _NotePickerSheetState extends State<_NotePickerSheet> {
                       TextField(
                         key: ValueKey('note-search-${widget.title}'),
                         controller: _searchController,
+                        maxLength: noteNameMaxLength,
+                        maxLengthEnforcement: MaxLengthEnforcement.enforced,
                         decoration: InputDecoration(
                           labelText: 'Search notes',
                           prefixIcon: const Icon(Icons.search_rounded),
@@ -2711,6 +2798,10 @@ class _NoteManagerSheetState extends State<NoteManagerSheet> {
   void _addNote() {
     final note = _cleanNoteLabel(_addController.text);
     if (note.isEmpty) return;
+    if (note.length > noteNameMaxLength) {
+      _showMessage('Notes can only be 20 characters long.');
+      return;
+    }
 
     final added = PerfumeScope.read(context).addNote(note);
     if (!added) {
@@ -2732,6 +2823,8 @@ class _NoteManagerSheetState extends State<NoteManagerSheet> {
           content: TextField(
             controller: controller,
             autofocus: true,
+            maxLength: noteNameMaxLength,
+            maxLengthEnforcement: MaxLengthEnforcement.enforced,
             decoration: const InputDecoration(labelText: 'Note name'),
             textInputAction: TextInputAction.done,
             onSubmitted: (value) => Navigator.of(context).pop(value),
@@ -2755,6 +2848,10 @@ class _NoteManagerSheetState extends State<NoteManagerSheet> {
     if (nextNote == null) return;
     final cleaned = _cleanNoteLabel(nextNote);
     if (cleaned.isEmpty) return;
+    if (cleaned.length > noteNameMaxLength) {
+      _showMessage('Notes can only be 20 characters long.');
+      return;
+    }
 
     final renamed = PerfumeScope.read(context).renameNote(note, cleaned);
     if (!renamed) {
@@ -2863,6 +2960,9 @@ class _NoteManagerSheetState extends State<NoteManagerSheet> {
                             child: TextField(
                               key: const ValueKey('note-add-field'),
                               controller: _addController,
+                              maxLength: noteNameMaxLength,
+                              maxLengthEnforcement:
+                                  MaxLengthEnforcement.enforced,
                               decoration: const InputDecoration(
                                 labelText: 'Add a new note',
                                 prefixIcon: Icon(Icons.add_rounded),

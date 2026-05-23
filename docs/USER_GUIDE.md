@@ -42,11 +42,14 @@ You can also use biometrics or Face ID as a shortcut if the device supports it a
 
 After logging in as admin, you can:
 
+- Turn dummy data on or off
 - Add perfume products
 - Edit existing products
 - Delete products
 - Add, rename, and delete selectable notes
 - Search and select notes for top, middle, and base note fields
 - Select product images from the device gallery
+
+Turning dummy data off clears the demo products and demo notes. The default Male, Female, Unisex filter and fragrance characteristic filters remain available. Note names can only be up to 20 characters.
 
 Products are stored in memory for this simple app version, so changes are local to the running app session.

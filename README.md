@@ -11,9 +11,11 @@ A modern Flutter perfume browsing and chooser app. Users can browse perfumes, fi
 - Results page ranks perfumes from highest filter match count to lowest.
 - Perfume detail page shows image, description, gender, characteristics, and notes.
 - Editable notes catalog for admin users.
+- Admin dummy data toggle to clear or restore the demo products and demo notes.
 - Admin-only product management with create, edit, and delete.
 - Admin can choose product images from the device gallery.
 - Add/edit product uses searchable note selectors for top, middle, and base notes.
+- Note names are limited to 20 characters.
 - Optional biometric or Face ID shortcut for admin login.
 - Clean modern UI with animations.
 
@@ -29,6 +31,8 @@ Password: Admin@1234
 ```
 
 Biometric login is also available as a shortcut on supported devices with biometrics already enrolled.
+
+Admin can switch dummy data on or off. Turning it off clears the demo products and demo notes so the app starts empty, while the fixed gender and fragrance characteristic filters remain available.
 
 ## APK
 

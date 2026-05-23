@@ -4,6 +4,8 @@ import 'models.dart';
 
 const genderOptions = ['Male', 'Female', 'Unisex'];
 
+const noteNameMaxLength = 20;
+
 const fragranceCharacteristicOptions = [
   'Woody',
   'Fruity',
