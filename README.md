@@ -12,7 +12,7 @@ A modern Flutter perfume browsing and chooser app. Users can browse perfumes, fi
 - Perfume detail page shows image, description, gender, characteristics, and notes.
 - Editable notes catalog for admin users.
 - Editable fragrance characteristics catalog for admin users.
-- Admin dummy data toggle to clear or restore the demo products and demo notes.
+- Admin dummy data toggle to clear or restore demo products, notes, and fragrance characteristics.
 - Admin-only product management with create, edit, and delete.
 - Admin can choose product images from the device gallery.
 - Add/edit product uses searchable note selectors for top, middle, and base notes.
@@ -33,7 +33,7 @@ Password: Admin@1234
 
 Biometric login is also available as a shortcut on supported devices with biometrics already enrolled.
 
-Admin can switch dummy data on or off. Turning it off clears the demo products and demo notes so the app starts empty, while gender and fragrance characteristic filters remain available.
+Admin can switch dummy data on or off. Turning it off clears the demo products, demo notes, and demo fragrance characteristics so the catalog managers start empty. The fixed Male, Female, and Unisex filter remains available.
 
 ## APK
 
@@ -92,11 +92,15 @@ flutter test
 
 ```text
 lib/
-  auth_store.dart   Admin login and biometric authentication logic
-  catalog.dart      Hard-coded perfume product data
-  main.dart         App UI, pages, filters, CRUD screens, navigation
+  auth_store.dart   Auth Cubit and admin/biometric login state
+  catalog.dart      Default perfume, notes, and characteristic data
+  main.dart         App bootstrap, theme, and feature part registration
   models.dart       Product and filter models
-  store.dart        In-memory product, notes, and characteristics store
+  store.dart        Perfume catalog Cubit for products, notes, and characteristics
+  src/
+    core/           BLoC provider scopes
+    features/       Auth, browsing, results, detail, editor, and admin UI
+    shared/         Reusable widgets and navigation helpers
 
 assets/images/perfumes/
   Real perfume product images used by the catalog

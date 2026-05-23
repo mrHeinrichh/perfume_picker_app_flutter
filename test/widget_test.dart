@@ -105,7 +105,7 @@ void main() {
     expect(store.dummyDataEnabled, isFalse);
     expect(store.products, isEmpty);
     expect(store.noteOptions, isEmpty);
-    expect(store.fragranceCharacteristicOptions, contains('Woody'));
+    expect(store.fragranceCharacteristicOptions, isEmpty);
     expect(genderOptions, ['Male', 'Female', 'Unisex']);
     expect(fragranceCharacteristicOptions, contains('Woody'));
 
@@ -119,7 +119,8 @@ void main() {
     expect(store.products.length, defaultProducts.length);
     expect(store.noteOptions, contains('Bergamot'));
     expect(store.noteOptions, isNot(contains('Neroli')));
-    expect(store.fragranceCharacteristicOptions, contains('Solar'));
+    expect(store.fragranceCharacteristicOptions, contains('Woody'));
+    expect(store.fragranceCharacteristicOptions, isNot(contains('Solar')));
   });
 
   test('default products include top, middle, and base notes', () {

@@ -1,60 +1,95 @@
-import 'package:flutter/foundation.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'catalog.dart';
 import 'models.dart';
 
-class PerfumeStore extends ChangeNotifier {
-  PerfumeStore()
-    : _products = List<PerfumeProduct>.of(defaultProducts),
-      _noteOptions = defaultEditableNoteOptions(),
-      _fragranceCharacteristicOptions =
-          defaultEditableFragranceCharacteristicOptions();
+class PerfumeCatalogState {
+  const PerfumeCatalogState({
+    required this.products,
+    required this.noteOptions,
+    required this.fragranceCharacteristicOptions,
+    required this.dummyDataEnabled,
+  });
 
-  List<PerfumeProduct> _products;
-  List<String> _noteOptions;
-  List<String> _fragranceCharacteristicOptions;
-  bool _dummyDataEnabled = true;
+  PerfumeCatalogState.initial()
+    : products = List<PerfumeProduct>.of(defaultProducts),
+      noteOptions = defaultEditableNoteOptions(),
+      fragranceCharacteristicOptions =
+          defaultEditableFragranceCharacteristicOptions(),
+      dummyDataEnabled = true;
 
-  List<PerfumeProduct> get products => List.unmodifiable(_products);
+  final List<PerfumeProduct> products;
+  final List<String> noteOptions;
+  final List<String> fragranceCharacteristicOptions;
+  final bool dummyDataEnabled;
 
-  List<String> get noteOptions => List.unmodifiable(_noteOptions);
+  PerfumeCatalogState copyWith({
+    List<PerfumeProduct>? products,
+    List<String>? noteOptions,
+    List<String>? fragranceCharacteristicOptions,
+    bool? dummyDataEnabled,
+  }) {
+    return PerfumeCatalogState(
+      products: products ?? this.products,
+      noteOptions: noteOptions ?? this.noteOptions,
+      fragranceCharacteristicOptions:
+          fragranceCharacteristicOptions ?? this.fragranceCharacteristicOptions,
+      dummyDataEnabled: dummyDataEnabled ?? this.dummyDataEnabled,
+    );
+  }
+}
+
+class PerfumeStore extends Cubit<PerfumeCatalogState> {
+  PerfumeStore() : super(PerfumeCatalogState.initial());
+
+  List<PerfumeProduct> get products => List.unmodifiable(state.products);
+
+  List<String> get noteOptions => List.unmodifiable(state.noteOptions);
 
   List<String> get fragranceCharacteristicOptions =>
-      List.unmodifiable(_fragranceCharacteristicOptions);
+      List.unmodifiable(state.fragranceCharacteristicOptions);
 
-  bool get dummyDataEnabled => _dummyDataEnabled;
+  bool get dummyDataEnabled => state.dummyDataEnabled;
 
   PerfumeProduct? byId(String id) {
-    for (final product in _products) {
+    for (final product in state.products) {
       if (product.id == id) return product;
     }
     return null;
   }
 
   void add(PerfumeProduct product) {
-    _products = [product, ..._products];
-    notifyListeners();
+    emit(state.copyWith(products: [product, ...state.products]));
   }
 
   void update(PerfumeProduct product) {
-    _products = [
-      for (final existing in _products)
-        if (existing.id == product.id) product else existing,
-    ];
-    notifyListeners();
+    emit(
+      state.copyWith(
+        products: [
+          for (final existing in state.products)
+            if (existing.id == product.id) product else existing,
+        ],
+      ),
+    );
   }
 
   void delete(String id) {
-    _products = _products.where((product) => product.id != id).toList();
-    notifyListeners();
+    emit(
+      state.copyWith(
+        products: state.products
+            .where((product) => product.id != id)
+            .toList(growable: false),
+      ),
+    );
   }
 
   bool addNote(String note) {
     final cleaned = _cleanNote(note);
     if (!_isValidNote(cleaned) || _containsNote(cleaned)) return false;
 
-    _noteOptions = _sortNotes([..._noteOptions, cleaned]);
-    notifyListeners();
+    emit(
+      state.copyWith(noteOptions: _sortNotes([...state.noteOptions, cleaned])),
+    );
     return true;
   }
 
@@ -68,22 +103,23 @@ class PerfumeStore extends ChangeNotifier {
     final sameNote = _sameNote(current, next);
     if (!sameNote && _containsNote(next)) return false;
 
-    _noteOptions = _sortNotes([
-      for (final note in _noteOptions)
-        if (_sameNote(note, current)) next else note,
-    ]);
-
-    _products = _products
-        .map(
-          (product) => product.copyWith(
-            topNotes: _replaceNote(product.topNotes, current, next),
-            middleNotes: _replaceNote(product.middleNotes, current, next),
-            baseNotes: _replaceNote(product.baseNotes, current, next),
-          ),
-        )
-        .toList(growable: false);
-
-    notifyListeners();
+    emit(
+      state.copyWith(
+        noteOptions: _sortNotes([
+          for (final note in state.noteOptions)
+            if (_sameNote(note, current)) next else note,
+        ]),
+        products: state.products
+            .map(
+              (product) => product.copyWith(
+                topNotes: _replaceNote(product.topNotes, current, next),
+                middleNotes: _replaceNote(product.middleNotes, current, next),
+                baseNotes: _replaceNote(product.baseNotes, current, next),
+              ),
+            )
+            .toList(growable: false),
+      ),
+    );
     return true;
   }
 
@@ -91,21 +127,23 @@ class PerfumeStore extends ChangeNotifier {
     final cleaned = _cleanNote(note);
     if (cleaned.isEmpty || !_containsNote(cleaned)) return false;
 
-    _noteOptions = [
-      for (final note in _noteOptions)
-        if (!_sameNote(note, cleaned)) note,
-    ];
-    _products = _products
-        .map(
-          (product) => product.copyWith(
-            topNotes: _removeNote(product.topNotes, cleaned),
-            middleNotes: _removeNote(product.middleNotes, cleaned),
-            baseNotes: _removeNote(product.baseNotes, cleaned),
-          ),
-        )
-        .toList(growable: false);
-
-    notifyListeners();
+    emit(
+      state.copyWith(
+        noteOptions: [
+          for (final note in state.noteOptions)
+            if (!_sameNote(note, cleaned)) note,
+        ],
+        products: state.products
+            .map(
+              (product) => product.copyWith(
+                topNotes: _removeNote(product.topNotes, cleaned),
+                middleNotes: _removeNote(product.middleNotes, cleaned),
+                baseNotes: _removeNote(product.baseNotes, cleaned),
+              ),
+            )
+            .toList(growable: false),
+      ),
+    );
     return true;
   }
 
@@ -113,7 +151,7 @@ class PerfumeStore extends ChangeNotifier {
     final cleaned = _cleanNote(note);
     if (cleaned.isEmpty) return 0;
 
-    return _products
+    return state.products
         .where(
           (product) => product.notes.any((item) => _sameNote(item, cleaned)),
         )
@@ -126,11 +164,14 @@ class PerfumeStore extends ChangeNotifier {
       return false;
     }
 
-    _fragranceCharacteristicOptions = _sortCharacteristics([
-      ..._fragranceCharacteristicOptions,
-      cleaned,
-    ]);
-    notifyListeners();
+    emit(
+      state.copyWith(
+        fragranceCharacteristicOptions: _sortCharacteristics([
+          ...state.fragranceCharacteristicOptions,
+          cleaned,
+        ]),
+      ),
+    );
     return true;
   }
 
@@ -146,27 +187,28 @@ class PerfumeStore extends ChangeNotifier {
     final sameCharacteristic = _sameCharacteristic(current, next);
     if (!sameCharacteristic && _containsCharacteristic(next)) return false;
 
-    _fragranceCharacteristicOptions = _sortCharacteristics([
-      for (final characteristic in _fragranceCharacteristicOptions)
-        if (_sameCharacteristic(characteristic, current))
-          next
-        else
-          characteristic,
-    ]);
-
-    _products = _products
-        .map(
-          (product) => product.copyWith(
-            fragranceCharacteristics: _replaceCharacteristic(
-              product.fragranceCharacteristics,
-              current,
-              next,
-            ),
-          ),
-        )
-        .toList(growable: false);
-
-    notifyListeners();
+    emit(
+      state.copyWith(
+        fragranceCharacteristicOptions: _sortCharacteristics([
+          for (final characteristic in state.fragranceCharacteristicOptions)
+            if (_sameCharacteristic(characteristic, current))
+              next
+            else
+              characteristic,
+        ]),
+        products: state.products
+            .map(
+              (product) => product.copyWith(
+                fragranceCharacteristics: _replaceCharacteristic(
+                  product.fragranceCharacteristics,
+                  current,
+                  next,
+                ),
+              ),
+            )
+            .toList(growable: false),
+      ),
+    );
     return true;
   }
 
@@ -174,22 +216,24 @@ class PerfumeStore extends ChangeNotifier {
     final cleaned = _cleanCharacteristic(characteristic);
     if (cleaned.isEmpty || !_containsCharacteristic(cleaned)) return false;
 
-    _fragranceCharacteristicOptions = [
-      for (final characteristic in _fragranceCharacteristicOptions)
-        if (!_sameCharacteristic(characteristic, cleaned)) characteristic,
-    ];
-    _products = _products
-        .map(
-          (product) => product.copyWith(
-            fragranceCharacteristics: _removeCharacteristic(
-              product.fragranceCharacteristics,
-              cleaned,
-            ),
-          ),
-        )
-        .toList(growable: false);
-
-    notifyListeners();
+    emit(
+      state.copyWith(
+        fragranceCharacteristicOptions: [
+          for (final characteristic in state.fragranceCharacteristicOptions)
+            if (!_sameCharacteristic(characteristic, cleaned)) characteristic,
+        ],
+        products: state.products
+            .map(
+              (product) => product.copyWith(
+                fragranceCharacteristics: _removeCharacteristic(
+                  product.fragranceCharacteristics,
+                  cleaned,
+                ),
+              ),
+            )
+            .toList(growable: false),
+      ),
+    );
     return true;
   }
 
@@ -197,7 +241,7 @@ class PerfumeStore extends ChangeNotifier {
     final cleaned = _cleanCharacteristic(characteristic);
     if (cleaned.isEmpty) return 0;
 
-    return _products
+    return state.products
         .where(
           (product) => product.fragranceCharacteristics.any(
             (item) => _sameCharacteristic(item, cleaned),
@@ -207,40 +251,32 @@ class PerfumeStore extends ChangeNotifier {
   }
 
   void reset() {
-    _dummyDataEnabled = true;
-    _products = List<PerfumeProduct>.of(defaultProducts);
-    _noteOptions = defaultEditableNoteOptions();
-    _fragranceCharacteristicOptions =
-        defaultEditableFragranceCharacteristicOptions();
-    notifyListeners();
+    emit(PerfumeCatalogState.initial());
   }
 
   void setDummyDataEnabled(bool enabled) {
-    if (_dummyDataEnabled == enabled) return;
+    if (state.dummyDataEnabled == enabled) return;
 
-    _dummyDataEnabled = enabled;
-    if (enabled) {
-      _products = List<PerfumeProduct>.of(defaultProducts);
-      _noteOptions = defaultEditableNoteOptions();
-      _fragranceCharacteristicOptions = _sortCharacteristics([
-        ..._fragranceCharacteristicOptions,
-        ...defaultEditableFragranceCharacteristicOptions(),
-      ]);
-    } else {
-      _products = [];
-      _noteOptions = [];
-    }
-    notifyListeners();
+    emit(
+      state.copyWith(
+        dummyDataEnabled: enabled,
+        products: enabled ? List<PerfumeProduct>.of(defaultProducts) : [],
+        noteOptions: enabled ? defaultEditableNoteOptions() : [],
+        fragranceCharacteristicOptions: enabled
+            ? defaultEditableFragranceCharacteristicOptions()
+            : [],
+      ),
+    );
   }
 
   bool _containsCharacteristic(String characteristic) {
-    return _fragranceCharacteristicOptions.any(
+    return state.fragranceCharacteristicOptions.any(
       (existing) => _sameCharacteristic(existing, characteristic),
     );
   }
 
   bool _containsNote(String note) {
-    return _noteOptions.any((existing) => _sameNote(existing, note));
+    return state.noteOptions.any((existing) => _sameNote(existing, note));
   }
 
   static String _cleanNote(String note) {

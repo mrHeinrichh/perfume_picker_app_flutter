@@ -47,9 +47,10 @@ After logging in as admin, you can:
 - Edit existing products
 - Delete products
 - Add, rename, and delete selectable notes
+- Add, rename, and delete fragrance characteristics
 - Search and select notes for top, middle, and base note fields
 - Select product images from the device gallery
 
-Turning dummy data off clears the demo products and demo notes. The default Male, Female, Unisex filter and fragrance characteristic filters remain available. Note names can only be up to 20 characters.
+Turning dummy data off clears the demo products, demo notes, and demo fragrance characteristics. The default Male, Female, and Unisex filter remains available. Note names can only be up to 20 characters.
 
 Products are stored in memory for this simple app version, so changes are local to the running app session.

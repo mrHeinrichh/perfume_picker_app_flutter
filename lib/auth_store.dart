@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:local_auth/local_auth.dart';
 
 enum UserRole { user, admin }
@@ -24,25 +24,48 @@ class AuthResult {
   final String message;
 }
 
-class AuthStore extends ChangeNotifier {
+class AuthState {
+  const AuthState({required this.currentAccount, required this.isReady});
+
+  const AuthState.initial() : currentAccount = null, isReady = false;
+
+  final AuthAccount? currentAccount;
+  final bool isReady;
+
+  bool get isLoggedIn => currentAccount != null;
+  bool get isAdmin => currentAccount?.role == UserRole.admin;
+
+  AuthState copyWith({
+    AuthAccount? currentAccount,
+    bool? clearCurrentAccount,
+    bool? isReady,
+  }) {
+    return AuthState(
+      currentAccount: clearCurrentAccount == true
+          ? null
+          : currentAccount ?? this.currentAccount,
+      isReady: isReady ?? this.isReady,
+    );
+  }
+}
+
+class AuthStore extends Cubit<AuthState> {
   AuthStore({LocalAuthentication? localAuthentication})
-    : _localAuthentication = localAuthentication ?? LocalAuthentication();
+    : _localAuthentication = localAuthentication ?? LocalAuthentication(),
+      super(const AuthState.initial());
 
   static const adminUsername = 'admin';
   static const adminPassword = 'Admin@1234';
 
   final LocalAuthentication _localAuthentication;
-  AuthAccount? _currentAccount;
-  bool _isReady = false;
 
-  bool get isReady => _isReady;
-  AuthAccount? get currentAccount => _currentAccount;
-  bool get isLoggedIn => _currentAccount != null;
-  bool get isAdmin => _currentAccount?.role == UserRole.admin;
+  bool get isReady => state.isReady;
+  AuthAccount? get currentAccount => state.currentAccount;
+  bool get isLoggedIn => state.isLoggedIn;
+  bool get isAdmin => state.isAdmin;
 
   Future<void> load() async {
-    _isReady = true;
-    notifyListeners();
+    emit(state.copyWith(isReady: true));
   }
 
   Future<AuthResult> login({
@@ -77,16 +100,18 @@ class AuthStore extends ChangeNotifier {
   }
 
   void _unlockAdmin() {
-    _currentAccount = const AuthAccount(
-      username: adminUsername,
-      role: UserRole.admin,
+    emit(
+      state.copyWith(
+        currentAccount: const AuthAccount(
+          username: adminUsername,
+          role: UserRole.admin,
+        ),
+      ),
     );
-    notifyListeners();
   }
 
   void logout() {
-    _currentAccount = null;
-    notifyListeners();
+    emit(state.copyWith(clearCurrentAccount: true));
   }
 
   Future<AuthResult> _authenticateAdmin() async {
