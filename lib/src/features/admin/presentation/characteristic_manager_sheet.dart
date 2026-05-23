@@ -53,35 +53,15 @@ class _CharacteristicManagerSheetState
   }
 
   Future<void> _renameCharacteristic(String characteristic) async {
-    final controller = TextEditingController(text: characteristic);
     final nextCharacteristic = await showDialog<String>(
       context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Rename characteristic'),
-          content: TextField(
-            controller: controller,
-            autofocus: true,
-            maxLength: fragranceCharacteristicNameMaxLength,
-            maxLengthEnforcement: MaxLengthEnforcement.enforced,
-            decoration: const InputDecoration(labelText: 'Characteristic name'),
-            textInputAction: TextInputAction.done,
-            onSubmitted: (value) => Navigator.of(context).pop(value),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.of(context).pop(controller.text),
-              child: const Text('Save'),
-            ),
-          ],
-        );
-      },
+      builder: (_) => _RenameCatalogItemDialog(
+        title: 'Rename characteristic',
+        labelText: 'Characteristic name',
+        initialValue: characteristic,
+        maxLength: fragranceCharacteristicNameMaxLength,
+      ),
     );
-    controller.dispose();
 
     if (!mounted) return;
     if (nextCharacteristic == null) return;

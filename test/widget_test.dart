@@ -4,6 +4,22 @@ import 'package:perfume_picker_app/main.dart';
 import 'package:perfume_picker_app/store.dart';
 
 void main() {
+  Future<void> loginAsAdmin(WidgetTester tester) async {
+    await tester.tap(find.byKey(const ValueKey('admin-login-button')));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.byKey(const ValueKey('admin-username')),
+      AuthStore.adminUsername,
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('admin-password')),
+      AuthStore.adminPassword,
+    );
+    await tester.tap(find.byKey(const ValueKey('admin-submit-button')));
+    await tester.pumpAndSettle();
+  }
+
   test('rankPerfumes sorts from highest filter matches', () {
     final ranked = rankPerfumes({'Male', 'Woody', 'Cedar'}, defaultProducts);
     final scores = ranked.map((match) => match.score).toList();
@@ -184,19 +200,7 @@ void main() {
     await tester.pumpWidget(const PerfumePickerApp());
     await tester.pumpAndSettle();
 
-    await tester.tap(find.byKey(const ValueKey('admin-login-button')));
-    await tester.pumpAndSettle();
-
-    await tester.enterText(
-      find.byKey(const ValueKey('admin-username')),
-      AuthStore.adminUsername,
-    );
-    await tester.enterText(
-      find.byKey(const ValueKey('admin-password')),
-      AuthStore.adminPassword,
-    );
-    await tester.tap(find.byKey(const ValueKey('admin-submit-button')));
-    await tester.pumpAndSettle();
+    await loginAsAdmin(tester);
 
     expect(find.text('Admin tools'), findsOneWidget);
     expect(find.text('Dummy data'), findsWidgets);
@@ -224,6 +228,45 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Manage characteristics'), findsOneWidget);
+  });
+
+  testWidgets('admin cancel edit dialogs do not crash', (tester) async {
+    tester.view.physicalSize = const Size(1200, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(const PerfumePickerApp());
+    await tester.pumpAndSettle();
+    await loginAsAdmin(tester);
+
+    await tester.tap(find.byKey(const ValueKey('admin-add-product-button')));
+    await tester.pumpAndSettle();
+    expect(find.text('Add product'), findsWidgets);
+
+    await tester.tap(find.byIcon(Icons.close_rounded).last);
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+
+    await tester.tap(find.byKey(const ValueKey('admin-manage-notes-button')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Rename note').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+    await tester.tap(find.byIcon(Icons.close_rounded).last);
+    await tester.pumpAndSettle();
+
+    await tester.tap(
+      find.byKey(const ValueKey('admin-manage-characteristics-button')),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Rename characteristic').first);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('picker flow opens results and show page', (tester) async {
@@ -265,5 +308,24 @@ void main() {
       find.text(topMatch.perfume.fragranceCharacteristics.join(' / ')),
       findsOneWidget,
     );
+  });
+
+  testWidgets('admin results page does not show add product floating button', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1200, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(const PerfumePickerApp());
+    await tester.pumpAndSettle();
+    await loginAsAdmin(tester);
+
+    await tester.tap(find.byKey(const ValueKey('find-matches-button')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Results'), findsOneWidget);
+    expect(find.byType(FloatingActionButton), findsNothing);
   });
 }

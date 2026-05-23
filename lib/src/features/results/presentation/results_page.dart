@@ -91,13 +91,6 @@ class ResultsPage extends StatelessWidget {
           ),
         ),
       ),
-      floatingActionButton: canManageProducts
-          ? FloatingActionButton.extended(
-              onPressed: () => showProductEditor(context),
-              icon: const Icon(Icons.add_rounded),
-              label: const Text('Product'),
-            )
-          : null,
     );
   }
 }

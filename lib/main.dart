@@ -51,6 +51,7 @@ part 'src/features/product_editor/presentation/widgets/note_picker_sheet.dart';
 part 'src/features/product_editor/presentation/product_editor_helpers.dart';
 part 'src/features/admin/presentation/note_manager_sheet.dart';
 part 'src/features/admin/presentation/characteristic_manager_sheet.dart';
+part 'src/features/admin/presentation/widgets/rename_catalog_item_dialog.dart';
 part 'src/features/admin/presentation/catalog_manager_routes.dart';
 part 'src/shared/presentation/widgets/pill.dart';
 part 'src/shared/presentation/widgets/mini_chip.dart';

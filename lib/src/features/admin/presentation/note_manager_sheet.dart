@@ -51,35 +51,15 @@ class _NoteManagerSheetState extends State<NoteManagerSheet> {
   }
 
   Future<void> _renameNote(String note) async {
-    final controller = TextEditingController(text: note);
     final nextNote = await showDialog<String>(
       context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('Rename note'),
-          content: TextField(
-            controller: controller,
-            autofocus: true,
-            maxLength: noteNameMaxLength,
-            maxLengthEnforcement: MaxLengthEnforcement.enforced,
-            decoration: const InputDecoration(labelText: 'Note name'),
-            textInputAction: TextInputAction.done,
-            onSubmitted: (value) => Navigator.of(context).pop(value),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancel'),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.of(context).pop(controller.text),
-              child: const Text('Save'),
-            ),
-          ],
-        );
-      },
+      builder: (_) => _RenameCatalogItemDialog(
+        title: 'Rename note',
+        labelText: 'Note name',
+        initialValue: note,
+        maxLength: noteNameMaxLength,
+      ),
     );
-    controller.dispose();
 
     if (!mounted) return;
     if (nextNote == null) return;
