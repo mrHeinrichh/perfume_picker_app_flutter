@@ -9,9 +9,12 @@ import 'store.dart';
 
 export 'catalog.dart'
     show
+        defaultEditableFragranceCharacteristicOptions,
         defaultNoteOptions,
         defaultProducts,
         filterGroups,
+        filterGroupsForCatalog,
+        fragranceCharacteristicNameMaxLength,
         fragranceCharacteristicOptions,
         genderOptions,
         noteNameMaxLength;
@@ -471,12 +474,33 @@ class _LandingPageState extends State<LandingPage> {
   void _setDummyDataEnabled(bool enabled) {
     final store = PerfumeScope.read(context);
     store.setDummyDataEnabled(enabled);
-    final validFilters = filterGroupsForNotes(
-      store.noteOptions,
+    _syncSelectedFiltersWithStore(store);
+  }
+
+  Future<void> _openNoteManager() async {
+    await showNoteManager(context);
+    if (!mounted) return;
+    _syncSelectedFiltersWithStore();
+  }
+
+  Future<void> _openCharacteristicManager() async {
+    await showCharacteristicManager(context);
+    if (!mounted) return;
+    _syncSelectedFiltersWithStore();
+  }
+
+  void _syncSelectedFiltersWithStore([PerfumeStore? perfumeStore]) {
+    final store = perfumeStore ?? PerfumeScope.read(context);
+    final validFilters = filterGroupsForCatalog(
+      noteOptions: store.noteOptions,
+      fragranceCharacteristics: store.fragranceCharacteristicOptions,
     ).expand((group) => group.options).toSet();
-    setState(() {
-      _selectedFilters.removeWhere((filter) => !validFilters.contains(filter));
-    });
+    final removedFilters = _selectedFilters
+        .where((filter) => !validFilters.contains(filter))
+        .toList(growable: false);
+
+    if (removedFilters.isEmpty) return;
+    setState(() => _selectedFilters.removeAll(removedFilters));
   }
 
   @override
@@ -484,7 +508,10 @@ class _LandingPageState extends State<LandingPage> {
     final store = PerfumeScope.watch(context);
     final auth = AuthScope.watch(context);
     final theme = Theme.of(context);
-    final groups = filterGroupsForNotes(store.noteOptions);
+    final groups = filterGroupsForCatalog(
+      noteOptions: store.noteOptions,
+      fragranceCharacteristics: store.fragranceCharacteristicOptions,
+    );
     final canManageProducts = auth.isAdmin;
     final account = auth.currentAccount;
     final accountLabel = canManageProducts
@@ -510,12 +537,6 @@ class _LandingPageState extends State<LandingPage> {
                           : () {
                               showAdminLogin(context);
                             },
-                      onAdd: canManageProducts
-                          ? () => showProductEditor(context)
-                          : null,
-                      onManageNotes: canManageProducts
-                          ? () => showNoteManager(context)
-                          : null,
                     ),
                   ),
                 ),
@@ -526,10 +547,13 @@ class _LandingPageState extends State<LandingPage> {
                       child: _AdminToolsPanel(
                         productCount: store.products.length,
                         noteCount: store.noteOptions.length,
+                        characteristicCount:
+                            store.fragranceCharacteristicOptions.length,
                         dummyDataEnabled: store.dummyDataEnabled,
                         onDummyDataChanged: _setDummyDataEnabled,
                         onAddProduct: () => showProductEditor(context),
-                        onManageNotes: () => showNoteManager(context),
+                        onManageNotes: _openNoteManager,
+                        onManageCharacteristics: _openCharacteristicManager,
                       ),
                     ),
                   ),
@@ -592,19 +616,6 @@ class _LandingPageState extends State<LandingPage> {
                       icon: const Icon(Icons.logout_rounded),
                     ),
                     const SizedBox(width: 10),
-                    IconButton.filledTonal(
-                      tooltip: 'Add product',
-                      onPressed: () => showProductEditor(context),
-                      icon: const Icon(Icons.add_rounded),
-                    ),
-                    const SizedBox(width: 10),
-                    IconButton.filledTonal(
-                      key: const ValueKey('manage-notes-button'),
-                      tooltip: 'Manage notes',
-                      onPressed: () => showNoteManager(context),
-                      icon: const Icon(Icons.edit_note_rounded),
-                    ),
-                    const SizedBox(width: 10),
                   ] else ...[
                     IconButton.filledTonal(
                       key: const ValueKey('admin-login-button'),
@@ -656,16 +667,12 @@ class _LandingHeader extends StatelessWidget {
     required this.selectedCount,
     required this.accountLabel,
     required this.onAdminLogin,
-    required this.onAdd,
-    required this.onManageNotes,
   });
 
   final int productCount;
   final int selectedCount;
   final String accountLabel;
   final VoidCallback? onAdminLogin;
-  final VoidCallback? onAdd;
-  final VoidCallback? onManageNotes;
 
   @override
   Widget build(BuildContext context) {
@@ -739,19 +746,6 @@ class _LandingHeader extends StatelessWidget {
                       icon: const Icon(Icons.fingerprint_rounded),
                       label: const Text('Admin login'),
                     ),
-                  if (onAdd != null)
-                    FilledButton.tonalIcon(
-                      onPressed: onAdd,
-                      icon: const Icon(Icons.add_rounded),
-                      label: const Text('Add product'),
-                    ),
-                  if (onManageNotes != null)
-                    FilledButton.tonalIcon(
-                      key: const ValueKey('header-manage-notes-button'),
-                      onPressed: onManageNotes,
-                      icon: const Icon(Icons.edit_note_rounded),
-                      label: const Text('Manage notes'),
-                    ),
                 ],
               ),
             ],
@@ -785,34 +779,40 @@ class _AdminToolsPanel extends StatelessWidget {
   const _AdminToolsPanel({
     required this.productCount,
     required this.noteCount,
+    required this.characteristicCount,
     required this.dummyDataEnabled,
     required this.onDummyDataChanged,
     required this.onAddProduct,
     required this.onManageNotes,
+    required this.onManageCharacteristics,
   });
 
   final int productCount;
   final int noteCount;
+  final int characteristicCount;
   final bool dummyDataEnabled;
   final ValueChanged<bool> onDummyDataChanged;
   final VoidCallback onAddProduct;
   final VoidCallback onManageNotes;
+  final VoidCallback onManageCharacteristics;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surface,
-        borderRadius: BorderRadius.circular(24),
-        border: Border.all(color: Colors.black.withValues(alpha: .07)),
+        color: const Color(0xFFF7FAF6),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: const Color(0xFF17201D).withValues(alpha: .08),
+        ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: .04),
-            blurRadius: 20,
-            offset: const Offset(0, 10),
+            color: Colors.black.withValues(alpha: .035),
+            blurRadius: 16,
+            offset: const Offset(0, 8),
           ),
         ],
       ),
@@ -821,18 +821,32 @@ class _AdminToolsPanel extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(
-                Icons.admin_panel_settings_outlined,
-                color: theme.colorScheme.primary,
+              Container(
+                width: 34,
+                height: 34,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF17201D),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(
+                  Icons.admin_panel_settings_outlined,
+                  color: Color(0xFFCFF3E8),
+                  size: 19,
+                ),
               ),
               const SizedBox(width: 10),
               Expanded(
-                child: Text('Admin tools', style: theme.textTheme.titleMedium),
+                child: Text(
+                  'Admin tools',
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w900,
+                    letterSpacing: 0,
+                  ),
+                ),
               ),
             ],
           ),
-
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
           Wrap(
             spacing: 8,
             runSpacing: 8,
@@ -850,6 +864,12 @@ class _AdminToolsPanel extends StatelessWidget {
                 foreground: theme.colorScheme.secondary,
                 background: theme.colorScheme.secondary.withValues(alpha: .12),
               ),
+              _MiniChip(
+                icon: Icons.auto_awesome_outlined,
+                label: '$characteristicCount characteristics',
+                foreground: const Color(0xFF6C5A8A),
+                background: const Color(0xFFEFE7FF),
+              ),
               _MiniSwitchChip(
                 label: 'Dummy data',
                 enabled: dummyDataEnabled,
@@ -860,24 +880,81 @@ class _AdminToolsPanel extends StatelessWidget {
             ],
           ),
 
-          const SizedBox(height: 12),
+          const SizedBox(height: 10),
           Wrap(
-            spacing: 10,
-            runSpacing: 10,
+            spacing: 8,
+            runSpacing: 8,
             children: [
-              FilledButton.tonalIcon(
+              _AdminCommandChip(
+                key: const ValueKey('admin-add-product-button'),
                 onPressed: onAddProduct,
                 icon: const Icon(Icons.add_rounded),
                 label: const Text('Add product'),
               ),
-              FilledButton.tonalIcon(
+              _AdminCommandChip(
+                key: const ValueKey('admin-manage-notes-button'),
                 onPressed: onManageNotes,
                 icon: const Icon(Icons.edit_note_rounded),
-                label: Text('Manage notes ($noteCount)'),
+                label: Text('Notes ($noteCount)'),
+              ),
+              _AdminCommandChip(
+                key: const ValueKey('admin-manage-characteristics-button'),
+                onPressed: onManageCharacteristics,
+                icon: const Icon(Icons.auto_awesome_outlined),
+                label: Text('Characteristics ($characteristicCount)'),
               ),
             ],
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _AdminCommandChip extends StatelessWidget {
+  const _AdminCommandChip({
+    super.key,
+    required this.icon,
+    required this.label,
+    required this.onPressed,
+  });
+
+  final Widget icon;
+  final Widget label;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final foreground = theme.colorScheme.primary;
+
+    return Material(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
+        onTap: onPressed,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: Colors.black.withValues(alpha: .08)),
+          ),
+          child: IconTheme(
+            data: IconThemeData(color: foreground, size: 18),
+            child: DefaultTextStyle(
+              style: theme.textTheme.labelMedium!.copyWith(
+                color: const Color(0xFF17201D),
+                fontWeight: FontWeight.w900,
+                letterSpacing: 0,
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [icon, const SizedBox(width: 6), label],
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
@@ -2259,7 +2336,7 @@ class _ProductEditorSheetState extends State<ProductEditorSheet> {
                   Wrap(
                     spacing: 8,
                     runSpacing: 8,
-                    children: fragranceCharacteristicOptions.map((tag) {
+                    children: store.fragranceCharacteristicOptions.map((tag) {
                       final selected = _fragranceCharacteristics.contains(tag);
                       final foregroundColor = selected
                           ? Colors.white
@@ -3117,6 +3194,319 @@ class _NoteManagerSheetState extends State<NoteManagerSheet> {
   }
 }
 
+class CharacteristicManagerSheet extends StatefulWidget {
+  const CharacteristicManagerSheet({super.key});
+
+  @override
+  State<CharacteristicManagerSheet> createState() =>
+      _CharacteristicManagerSheetState();
+}
+
+class _CharacteristicManagerSheetState
+    extends State<CharacteristicManagerSheet> {
+  late final TextEditingController _addController;
+  late final TextEditingController _searchController;
+  String _query = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _addController = TextEditingController();
+    _searchController = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _addController.dispose();
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _showMessage(String message) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  void _addCharacteristic() {
+    final characteristic = _cleanCharacteristicLabel(_addController.text);
+    if (characteristic.isEmpty) return;
+    if (characteristic.length > fragranceCharacteristicNameMaxLength) {
+      _showMessage('Characteristics can only be 24 characters long.');
+      return;
+    }
+
+    final added = PerfumeScope.read(context).addCharacteristic(characteristic);
+    if (!added) {
+      _showMessage('$characteristic is already in the characteristics list.');
+      return;
+    }
+
+    _addController.clear();
+    _showMessage('$characteristic added.');
+  }
+
+  Future<void> _renameCharacteristic(String characteristic) async {
+    final controller = TextEditingController(text: characteristic);
+    final nextCharacteristic = await showDialog<String>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Rename characteristic'),
+          content: TextField(
+            controller: controller,
+            autofocus: true,
+            maxLength: fragranceCharacteristicNameMaxLength,
+            maxLengthEnforcement: MaxLengthEnforcement.enforced,
+            decoration: const InputDecoration(labelText: 'Characteristic name'),
+            textInputAction: TextInputAction.done,
+            onSubmitted: (value) => Navigator.of(context).pop(value),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(controller.text),
+              child: const Text('Save'),
+            ),
+          ],
+        );
+      },
+    );
+    controller.dispose();
+
+    if (!mounted) return;
+    if (nextCharacteristic == null) return;
+    final cleaned = _cleanCharacteristicLabel(nextCharacteristic);
+    if (cleaned.isEmpty) return;
+    if (cleaned.length > fragranceCharacteristicNameMaxLength) {
+      _showMessage('Characteristics can only be 24 characters long.');
+      return;
+    }
+
+    final renamed = PerfumeScope.read(
+      context,
+    ).renameCharacteristic(characteristic, cleaned);
+    if (!renamed) {
+      _showMessage('Could not rename characteristic. It may already exist.');
+      return;
+    }
+
+    _showMessage('$characteristic renamed to $cleaned.');
+  }
+
+  Future<void> _deleteCharacteristic(String characteristic) async {
+    final store = PerfumeScope.read(context);
+    final usageCount = store.characteristicUsageCount(characteristic);
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Delete characteristic?'),
+          content: Text(
+            usageCount == 0
+                ? '$characteristic will be removed from the selectable characteristics list.'
+                : '$characteristic is used by $usageCount product(s). Deleting it also removes it from those products.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(context).pop(true),
+              child: const Text('Delete'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (!mounted) return;
+    if (confirmed != true) return;
+    store.deleteCharacteristic(characteristic);
+    _showMessage('$characteristic deleted.');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final store = PerfumeScope.watch(context);
+    final theme = Theme.of(context);
+    final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
+    final visibleCharacteristics = store.fragranceCharacteristicOptions
+        .where(
+          (characteristic) =>
+              characteristic.toLowerCase().contains(_query.toLowerCase()),
+        )
+        .toList(growable: false);
+
+    return AnimatedPadding(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOut,
+      padding: EdgeInsets.only(bottom: bottomInset),
+      child: DraggableScrollableSheet(
+        initialChildSize: .86,
+        minChildSize: .56,
+        maxChildSize: .96,
+        expand: false,
+        builder: (context, controller) {
+          return Container(
+            decoration: const BoxDecoration(
+              color: Color(0xFFFFFCF6),
+              borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+            ),
+            child: Column(
+              children: [
+                const SizedBox(height: 12),
+                Container(
+                  width: 48,
+                  height: 5,
+                  decoration: BoxDecoration(
+                    color: Colors.black.withValues(alpha: .16),
+                    borderRadius: BorderRadius.circular(100),
+                  ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 18, 20, 12),
+                  child: Column(
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.auto_awesome_outlined,
+                            color: theme.colorScheme.primary,
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              'Manage characteristics',
+                              style: theme.textTheme.headlineMedium,
+                            ),
+                          ),
+                          IconButton.filledTonal(
+                            onPressed: () => Navigator.of(context).pop(),
+                            icon: const Icon(Icons.close_rounded),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: TextField(
+                              key: const ValueKey('characteristic-add-field'),
+                              controller: _addController,
+                              maxLength: fragranceCharacteristicNameMaxLength,
+                              maxLengthEnforcement:
+                                  MaxLengthEnforcement.enforced,
+                              decoration: const InputDecoration(
+                                labelText: 'Add a characteristic',
+                                prefixIcon: Icon(Icons.add_rounded),
+                              ),
+                              textInputAction: TextInputAction.done,
+                              onSubmitted: (_) => _addCharacteristic(),
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          IconButton.filled(
+                            key: const ValueKey('characteristic-add-button'),
+                            tooltip: 'Add characteristic',
+                            onPressed: _addCharacteristic,
+                            icon: const Icon(Icons.check_rounded),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 12),
+                      TextField(
+                        key: const ValueKey('characteristic-manager-search'),
+                        controller: _searchController,
+                        decoration: InputDecoration(
+                          labelText: 'Search characteristics',
+                          prefixIcon: const Icon(Icons.search_rounded),
+                          suffixIcon: _query.isEmpty
+                              ? null
+                              : IconButton(
+                                  tooltip: 'Clear search',
+                                  onPressed: () {
+                                    setState(() {
+                                      _query = '';
+                                      _searchController.clear();
+                                    });
+                                  },
+                                  icon: const Icon(Icons.close_rounded),
+                                ),
+                        ),
+                        onChanged: (value) => setState(() => _query = value),
+                      ),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: visibleCharacteristics.isEmpty
+                      ? Center(
+                          child: Text(
+                            'No characteristics found',
+                            style: theme.textTheme.titleMedium,
+                          ),
+                        )
+                      : ListView.separated(
+                          controller: controller,
+                          padding: const EdgeInsets.fromLTRB(20, 0, 20, 24),
+                          itemCount: visibleCharacteristics.length,
+                          separatorBuilder: (_, _) => const SizedBox(height: 8),
+                          itemBuilder: (context, index) {
+                            final characteristic =
+                                visibleCharacteristics[index];
+                            final usageCount = store.characteristicUsageCount(
+                              characteristic,
+                            );
+
+                            return ListTile(
+                              key: ValueKey(
+                                'managed-characteristic-$characteristic',
+                              ),
+                              tileColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(16),
+                              ),
+                              title: Text(characteristic),
+                              subtitle: Text(
+                                usageCount == 0
+                                    ? 'Not used yet'
+                                    : 'Used by $usageCount product(s)',
+                              ),
+                              trailing: Wrap(
+                                spacing: 4,
+                                children: [
+                                  IconButton(
+                                    tooltip: 'Rename characteristic',
+                                    onPressed: () =>
+                                        _renameCharacteristic(characteristic),
+                                    icon: const Icon(Icons.edit_outlined),
+                                  ),
+                                  IconButton(
+                                    tooltip: 'Delete characteristic',
+                                    onPressed: () =>
+                                        _deleteCharacteristic(characteristic),
+                                    icon: const Icon(Icons.delete_outline),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
 class _MatchBadge extends StatelessWidget {
   const _MatchBadge({required this.match});
 
@@ -3368,6 +3758,10 @@ bool _sameNoteLabel(String a, String b) {
   return _cleanNoteLabel(a).toLowerCase() == _cleanNoteLabel(b).toLowerCase();
 }
 
+String _cleanCharacteristicLabel(String characteristic) {
+  return characteristic.trim().replaceAll(RegExp(r'\s+'), ' ');
+}
+
 List<String> _mergeNoteOptions(List<String> notes) {
   final unique = <String>[];
   for (final note in notes.map(_cleanNoteLabel)) {
@@ -3407,6 +3801,23 @@ Future<void> showNoteManager(BuildContext context) async {
     useSafeArea: true,
     backgroundColor: Colors.transparent,
     builder: (_) => const NoteManagerSheet(),
+  );
+}
+
+Future<void> showCharacteristicManager(BuildContext context) async {
+  if (!AuthScope.read(context).isAdmin) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Admin access is required.')));
+    return;
+  }
+
+  await showModalBottomSheet<void>(
+    context: context,
+    isScrollControlled: true,
+    useSafeArea: true,
+    backgroundColor: Colors.transparent,
+    builder: (_) => const CharacteristicManagerSheet(),
   );
 }
 

@@ -5,6 +5,7 @@ import 'models.dart';
 const genderOptions = ['Male', 'Female', 'Unisex'];
 
 const noteNameMaxLength = 20;
+const fragranceCharacteristicNameMaxLength = 24;
 
 const fragranceCharacteristicOptions = [
   'Woody',
@@ -68,16 +69,26 @@ const filterGroups = <FilterGroup>[
 ];
 
 List<FilterGroup> filterGroupsForNotes(List<String> noteOptions) {
+  return filterGroupsForCatalog(
+    noteOptions: noteOptions,
+    fragranceCharacteristics: fragranceCharacteristicOptions,
+  );
+}
+
+List<FilterGroup> filterGroupsForCatalog({
+  required List<String> noteOptions,
+  required List<String> fragranceCharacteristics,
+}) {
   return [
     const FilterGroup(
       title: 'Male / Female / Unisex',
       icon: Icons.wc_outlined,
       options: genderOptions,
     ),
-    const FilterGroup(
+    FilterGroup(
       title: 'Fragrance characteristics',
       icon: Icons.auto_awesome_outlined,
-      options: fragranceCharacteristicOptions,
+      options: fragranceCharacteristics,
     ),
     FilterGroup(
       title: 'Notes',
@@ -99,6 +110,16 @@ List<String> defaultEditableNoteOptions() {
   }
 
   return notes.toList(growable: false)
+    ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+}
+
+List<String> defaultEditableFragranceCharacteristicOptions() {
+  final characteristics = <String>{...fragranceCharacteristicOptions};
+  for (final product in defaultProducts) {
+    characteristics.addAll(product.fragranceCharacteristics);
+  }
+
+  return characteristics.toList(growable: false)
     ..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
 }
 

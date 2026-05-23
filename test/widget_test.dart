@@ -59,12 +59,45 @@ void main() {
     );
   });
 
+  test('PerfumeStore can add, rename, and delete characteristics', () {
+    final store = PerfumeStore();
+    final product = defaultProducts.first.copyWith(
+      id: 'characteristic-test-product',
+      fragranceCharacteristics: ['Smoky'],
+    );
+
+    expect(store.addCharacteristic('Smoky'), isTrue);
+    expect(store.addCharacteristic(' smoky '), isFalse);
+    expect(
+      store.addCharacteristic('This characteristic name is too long'),
+      isFalse,
+    );
+
+    store.add(product);
+    expect(store.characteristicUsageCount('smoky'), 1);
+
+    expect(store.renameCharacteristic('Smoky', 'Dry woods'), isTrue);
+    expect(store.fragranceCharacteristicOptions, contains('Dry woods'));
+    expect(
+      store.byId(product.id)?.fragranceCharacteristics,
+      contains('Dry woods'),
+    );
+
+    expect(store.deleteCharacteristic('Dry woods'), isTrue);
+    expect(store.fragranceCharacteristicOptions, isNot(contains('Dry woods')));
+    expect(
+      store.byId(product.id)?.fragranceCharacteristics,
+      isNot(contains('Dry woods')),
+    );
+  });
+
   test('PerfumeStore can toggle dummy data on and off', () {
     final store = PerfumeStore();
 
     expect(store.dummyDataEnabled, isTrue);
     expect(store.products, isNotEmpty);
     expect(store.noteOptions, isNotEmpty);
+    expect(store.fragranceCharacteristicOptions, contains('Woody'));
     expect(genderOptions, ['Male', 'Female', 'Unisex']);
     expect(fragranceCharacteristicOptions, contains('Woody'));
 
@@ -72,17 +105,21 @@ void main() {
     expect(store.dummyDataEnabled, isFalse);
     expect(store.products, isEmpty);
     expect(store.noteOptions, isEmpty);
+    expect(store.fragranceCharacteristicOptions, contains('Woody'));
     expect(genderOptions, ['Male', 'Female', 'Unisex']);
     expect(fragranceCharacteristicOptions, contains('Woody'));
 
     expect(store.addNote('Neroli'), isTrue);
     expect(store.noteOptions, ['Neroli']);
+    expect(store.addCharacteristic('Solar'), isTrue);
+    expect(store.fragranceCharacteristicOptions, contains('Solar'));
 
     store.setDummyDataEnabled(true);
     expect(store.dummyDataEnabled, isTrue);
     expect(store.products.length, defaultProducts.length);
     expect(store.noteOptions, contains('Bergamot'));
     expect(store.noteOptions, isNot(contains('Neroli')));
+    expect(store.fragranceCharacteristicOptions, contains('Solar'));
   });
 
   test('default products include top, middle, and base notes', () {
@@ -167,6 +204,25 @@ void main() {
       findsOneWidget,
     );
     expect(find.text('${defaultProducts.length} products'), findsOneWidget);
+    expect(
+      find.text(
+        '${defaultEditableFragranceCharacteristicOptions().length} characteristics',
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.text(
+        'Characteristics (${defaultEditableFragranceCharacteristicOptions().length})',
+      ),
+      findsOneWidget,
+    );
+
+    await tester.tap(
+      find.byKey(const ValueKey('admin-manage-characteristics-button')),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Manage characteristics'), findsOneWidget);
   });
 
   testWidgets('picker flow opens results and show page', (tester) async {

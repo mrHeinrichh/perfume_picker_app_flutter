@@ -6,15 +6,21 @@ import 'models.dart';
 class PerfumeStore extends ChangeNotifier {
   PerfumeStore()
     : _products = List<PerfumeProduct>.of(defaultProducts),
-      _noteOptions = defaultEditableNoteOptions();
+      _noteOptions = defaultEditableNoteOptions(),
+      _fragranceCharacteristicOptions =
+          defaultEditableFragranceCharacteristicOptions();
 
   List<PerfumeProduct> _products;
   List<String> _noteOptions;
+  List<String> _fragranceCharacteristicOptions;
   bool _dummyDataEnabled = true;
 
   List<PerfumeProduct> get products => List.unmodifiable(_products);
 
   List<String> get noteOptions => List.unmodifiable(_noteOptions);
+
+  List<String> get fragranceCharacteristicOptions =>
+      List.unmodifiable(_fragranceCharacteristicOptions);
 
   bool get dummyDataEnabled => _dummyDataEnabled;
 
@@ -114,10 +120,98 @@ class PerfumeStore extends ChangeNotifier {
         .length;
   }
 
+  bool addCharacteristic(String characteristic) {
+    final cleaned = _cleanCharacteristic(characteristic);
+    if (!_isValidCharacteristic(cleaned) || _containsCharacteristic(cleaned)) {
+      return false;
+    }
+
+    _fragranceCharacteristicOptions = _sortCharacteristics([
+      ..._fragranceCharacteristicOptions,
+      cleaned,
+    ]);
+    notifyListeners();
+    return true;
+  }
+
+  bool renameCharacteristic(String currentCharacteristic, String nextValue) {
+    final current = _cleanCharacteristic(currentCharacteristic);
+    final next = _cleanCharacteristic(nextValue);
+    if (!_isValidCharacteristic(next) ||
+        current.isEmpty ||
+        !_containsCharacteristic(current)) {
+      return false;
+    }
+
+    final sameCharacteristic = _sameCharacteristic(current, next);
+    if (!sameCharacteristic && _containsCharacteristic(next)) return false;
+
+    _fragranceCharacteristicOptions = _sortCharacteristics([
+      for (final characteristic in _fragranceCharacteristicOptions)
+        if (_sameCharacteristic(characteristic, current))
+          next
+        else
+          characteristic,
+    ]);
+
+    _products = _products
+        .map(
+          (product) => product.copyWith(
+            fragranceCharacteristics: _replaceCharacteristic(
+              product.fragranceCharacteristics,
+              current,
+              next,
+            ),
+          ),
+        )
+        .toList(growable: false);
+
+    notifyListeners();
+    return true;
+  }
+
+  bool deleteCharacteristic(String characteristic) {
+    final cleaned = _cleanCharacteristic(characteristic);
+    if (cleaned.isEmpty || !_containsCharacteristic(cleaned)) return false;
+
+    _fragranceCharacteristicOptions = [
+      for (final characteristic in _fragranceCharacteristicOptions)
+        if (!_sameCharacteristic(characteristic, cleaned)) characteristic,
+    ];
+    _products = _products
+        .map(
+          (product) => product.copyWith(
+            fragranceCharacteristics: _removeCharacteristic(
+              product.fragranceCharacteristics,
+              cleaned,
+            ),
+          ),
+        )
+        .toList(growable: false);
+
+    notifyListeners();
+    return true;
+  }
+
+  int characteristicUsageCount(String characteristic) {
+    final cleaned = _cleanCharacteristic(characteristic);
+    if (cleaned.isEmpty) return 0;
+
+    return _products
+        .where(
+          (product) => product.fragranceCharacteristics.any(
+            (item) => _sameCharacteristic(item, cleaned),
+          ),
+        )
+        .length;
+  }
+
   void reset() {
     _dummyDataEnabled = true;
     _products = List<PerfumeProduct>.of(defaultProducts);
     _noteOptions = defaultEditableNoteOptions();
+    _fragranceCharacteristicOptions =
+        defaultEditableFragranceCharacteristicOptions();
     notifyListeners();
   }
 
@@ -128,11 +222,21 @@ class PerfumeStore extends ChangeNotifier {
     if (enabled) {
       _products = List<PerfumeProduct>.of(defaultProducts);
       _noteOptions = defaultEditableNoteOptions();
+      _fragranceCharacteristicOptions = _sortCharacteristics([
+        ..._fragranceCharacteristicOptions,
+        ...defaultEditableFragranceCharacteristicOptions(),
+      ]);
     } else {
       _products = [];
       _noteOptions = [];
     }
     notifyListeners();
+  }
+
+  bool _containsCharacteristic(String characteristic) {
+    return _fragranceCharacteristicOptions.any(
+      (existing) => _sameCharacteristic(existing, characteristic),
+    );
   }
 
   bool _containsNote(String note) {
@@ -147,8 +251,22 @@ class PerfumeStore extends ChangeNotifier {
     return note.isNotEmpty && note.length <= noteNameMaxLength;
   }
 
+  static String _cleanCharacteristic(String characteristic) {
+    return characteristic.trim().replaceAll(RegExp(r'\s+'), ' ');
+  }
+
+  static bool _isValidCharacteristic(String characteristic) {
+    return characteristic.isNotEmpty &&
+        characteristic.length <= fragranceCharacteristicNameMaxLength;
+  }
+
   static bool _sameNote(String a, String b) {
     return _cleanNote(a).toLowerCase() == _cleanNote(b).toLowerCase();
+  }
+
+  static bool _sameCharacteristic(String a, String b) {
+    return _cleanCharacteristic(a).toLowerCase() ==
+        _cleanCharacteristic(b).toLowerCase();
   }
 
   static List<String> _sortNotes(List<String> notes) {
@@ -158,6 +276,18 @@ class PerfumeStore extends ChangeNotifier {
         continue;
       }
       unique.add(note);
+    }
+    return unique..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
+  }
+
+  static List<String> _sortCharacteristics(List<String> characteristics) {
+    final unique = <String>[];
+    for (final characteristic in characteristics.map(_cleanCharacteristic)) {
+      if (!_isValidCharacteristic(characteristic) ||
+          unique.any((item) => _sameCharacteristic(item, characteristic))) {
+        continue;
+      }
+      unique.add(characteristic);
     }
     return unique..sort((a, b) => a.toLowerCase().compareTo(b.toLowerCase()));
   }
@@ -187,6 +317,43 @@ class PerfumeStore extends ChangeNotifier {
         continue;
       }
       unique.add(note);
+    }
+    return unique;
+  }
+
+  static List<String> _replaceCharacteristic(
+    List<String> characteristics,
+    String current,
+    String next,
+  ) {
+    return _dedupeCharacteristics([
+      for (final characteristic in characteristics)
+        if (_sameCharacteristic(characteristic, current))
+          next
+        else
+          characteristic,
+    ]);
+  }
+
+  static List<String> _removeCharacteristic(
+    List<String> characteristics,
+    String characteristicToRemove,
+  ) {
+    return [
+      for (final characteristic in characteristics)
+        if (!_sameCharacteristic(characteristic, characteristicToRemove))
+          characteristic,
+    ];
+  }
+
+  static List<String> _dedupeCharacteristics(List<String> characteristics) {
+    final unique = <String>[];
+    for (final characteristic in characteristics.map(_cleanCharacteristic)) {
+      if (!_isValidCharacteristic(characteristic) ||
+          unique.any((item) => _sameCharacteristic(item, characteristic))) {
+        continue;
+      }
+      unique.add(characteristic);
     }
     return unique;
   }
