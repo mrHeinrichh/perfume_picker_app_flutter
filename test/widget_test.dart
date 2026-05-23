@@ -137,6 +137,38 @@ void main() {
     expect(auth.isAdmin, isTrue);
   });
 
+  testWidgets('admin sees dummy data toggle on homepage', (tester) async {
+    tester.view.physicalSize = const Size(1200, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(const PerfumePickerApp());
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.byKey(const ValueKey('admin-login-button')));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(
+      find.byKey(const ValueKey('admin-username')),
+      AuthStore.adminUsername,
+    );
+    await tester.enterText(
+      find.byKey(const ValueKey('admin-password')),
+      AuthStore.adminPassword,
+    );
+    await tester.tap(find.byKey(const ValueKey('admin-submit-button')));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Admin tools'), findsOneWidget);
+    expect(find.text('Dummy data'), findsWidgets);
+    expect(
+      find.byKey(const ValueKey('admin-dummy-data-toggle')),
+      findsOneWidget,
+    );
+    expect(find.text('${defaultProducts.length} products'), findsOneWidget);
+  });
+
   testWidgets('picker flow opens results and show page', (tester) async {
     tester.view.physicalSize = const Size(1200, 900);
     tester.view.devicePixelRatio = 1;

@@ -523,6 +523,20 @@ class _LandingPageState extends State<LandingPage> {
                     ),
                   ),
                 ),
+                if (canManageProducts)
+                  SliverToBoxAdapter(
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 4, 20, 14),
+                      child: _AdminToolsPanel(
+                        productCount: store.products.length,
+                        noteCount: store.noteOptions.length,
+                        dummyDataEnabled: store.dummyDataEnabled,
+                        onDummyDataChanged: _setDummyDataEnabled,
+                        onAddProduct: () => showProductEditor(context),
+                        onManageNotes: () => showNoteManager(context),
+                      ),
+                    ),
+                  ),
                 SliverList.separated(
                   itemCount: groups.length,
                   separatorBuilder: (_, _) => const SizedBox(height: 14),
@@ -593,12 +607,6 @@ class _LandingPageState extends State<LandingPage> {
                       tooltip: 'Manage notes',
                       onPressed: () => showNoteManager(context),
                       icon: const Icon(Icons.edit_note_rounded),
-                    ),
-                    const SizedBox(width: 10),
-                    Switch.adaptive(
-                      key: const ValueKey('dummy-data-toggle'),
-                      value: store.dummyDataEnabled,
-                      onChanged: _setDummyDataEnabled,
                     ),
                     const SizedBox(width: 10),
                   ] else ...[
@@ -821,6 +829,131 @@ class _DummyDataToggle extends StatelessWidget {
             value: enabled,
             onChanged: onChanged,
             activeThumbColor: const Color(0xFFCFF3E8),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AdminToolsPanel extends StatelessWidget {
+  const _AdminToolsPanel({
+    required this.productCount,
+    required this.noteCount,
+    required this.dummyDataEnabled,
+    required this.onDummyDataChanged,
+    required this.onAddProduct,
+    required this.onManageNotes,
+  });
+
+  final int productCount;
+  final int noteCount;
+  final bool dummyDataEnabled;
+  final ValueChanged<bool> onDummyDataChanged;
+  final VoidCallback onAddProduct;
+  final VoidCallback onManageNotes;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: Colors.black.withValues(alpha: .07)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: .04),
+            blurRadius: 20,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.admin_panel_settings_outlined,
+                color: theme.colorScheme.primary,
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text('Admin tools', style: theme.textTheme.titleMedium),
+              ),
+              _Pill(
+                icon: Icons.inventory_2_outlined,
+                label: '$productCount products',
+                foreground: theme.colorScheme.primary,
+                background: theme.colorScheme.primary.withValues(alpha: .1),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF6F0E8),
+              borderRadius: BorderRadius.circular(18),
+            ),
+            child: Row(
+              children: [
+                Icon(
+                  dummyDataEnabled
+                      ? Icons.toggle_on_outlined
+                      : Icons.toggle_off_outlined,
+                  color: theme.colorScheme.primary,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Dummy data',
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      Text(
+                        dummyDataEnabled
+                            ? 'Demo products and notes are visible'
+                            : 'Demo products and notes are hidden',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: Colors.black.withValues(alpha: .58),
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Switch.adaptive(
+                  key: const ValueKey('admin-dummy-data-toggle'),
+                  value: dummyDataEnabled,
+                  onChanged: onDummyDataChanged,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: [
+              FilledButton.tonalIcon(
+                onPressed: onAddProduct,
+                icon: const Icon(Icons.add_rounded),
+                label: const Text('Add product'),
+              ),
+              FilledButton.tonalIcon(
+                onPressed: onManageNotes,
+                icon: const Icon(Icons.edit_note_rounded),
+                label: Text('Manage notes ($noteCount)'),
+              ),
+            ],
           ),
         ],
       ),
