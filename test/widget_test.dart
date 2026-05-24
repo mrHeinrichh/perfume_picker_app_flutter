@@ -352,6 +352,43 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('product editor validation snackbar appears inside the modal', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(1200, 900);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.resetPhysicalSize);
+    addTearDown(tester.view.resetDevicePixelRatio);
+
+    await tester.pumpWidget(const PerfumePickerApp());
+    await tester.pumpAndSettle();
+    await loginAsAdmin(tester);
+
+    await tester.tap(find.byKey(const ValueKey('admin-add-product-button')));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextFormField).at(0), 'Test Perfume');
+    await tester.enterText(
+      find.byType(TextFormField).at(1),
+      'A test perfume description.',
+    );
+    await tester.scrollUntilVisible(
+      find.text('Create product'),
+      420,
+      scrollable: find.byType(Scrollable).last,
+    );
+    await tester.tap(find.text('Create product'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.descendant(
+        of: find.byType(ProductEditorSheet),
+        matching: find.text('Choose at least one fragrance characteristic.'),
+      ),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('picker flow opens results and show page', (tester) async {
     tester.view.physicalSize = const Size(1200, 900);
     tester.view.devicePixelRatio = 1;
