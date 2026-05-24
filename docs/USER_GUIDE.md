@@ -53,4 +53,4 @@ After logging in as admin, you can:
 
 Turning dummy data off clears the demo products, demo notes, and demo fragrance characteristics. The default Male, Female, and Unisex filter remains available. Note names can only be up to 20 characters.
 
-Products are stored in memory for this simple app version, so changes are local to the running app session.
+Admin changes are saved locally on the device, so products, notes, fragrance characteristics, and gallery-picked product images remain after closing and reopening the app.

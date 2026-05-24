@@ -1,7 +1,23 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:perfume_picker_app/main.dart';
+import 'package:perfume_picker_app/src/core/data/catalog_persistence.dart';
 import 'package:perfume_picker_app/store.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+class FakeCatalogPersistence implements CatalogPersistence {
+  CatalogSnapshot? snapshot;
+
+  @override
+  Future<CatalogSnapshot?> load() async => snapshot;
+
+  @override
+  Future<void> save(CatalogSnapshot snapshot) async {
+    this.snapshot = snapshot;
+  }
+}
 
 void main() {
   Future<void> loginAsAdmin(WidgetTester tester) async {
@@ -19,6 +35,10 @@ void main() {
     await tester.tap(find.byKey(const ValueKey('admin-submit-button')));
     await tester.pumpAndSettle();
   }
+
+  setUp(() {
+    SharedPreferences.setMockInitialValues({});
+  });
 
   test('rankPerfumes sorts from highest filter matches', () {
     final ranked = rankPerfumes({'Male', 'Woody', 'Cedar'}, defaultProducts);
@@ -138,6 +158,69 @@ void main() {
     expect(store.fragranceCharacteristicOptions, contains('Woody'));
     expect(store.fragranceCharacteristicOptions, isNot(contains('Solar')));
   });
+
+  test('PerfumeStore persists catalog changes through persistence', () async {
+    final persistence = FakeCatalogPersistence();
+    final store = PerfumeStore(persistence: persistence);
+    final product = defaultProducts.first.copyWith(
+      id: 'persisted-product',
+      name: 'Persisted Product',
+      imageUrl: '',
+      imageBytes: Uint8List.fromList([1, 2, 3]),
+      fragranceCharacteristics: ['Solar'],
+      topNotes: ['Neroli'],
+      middleNotes: ['Jasmine'],
+      baseNotes: ['Musk'],
+    );
+
+    store.setDummyDataEnabled(false);
+    store.addNote('Neroli');
+    store.addCharacteristic('Solar');
+    store.add(product);
+
+    expect(persistence.snapshot?.products.single.name, 'Persisted Product');
+
+    final restored = PerfumeStore(persistence: persistence);
+    await restored.load();
+
+    expect(restored.products.single.name, 'Persisted Product');
+    expect(restored.products.single.imageBytes, orderedEquals([1, 2, 3]));
+    expect(restored.noteOptions, ['Neroli']);
+    expect(restored.fragranceCharacteristicOptions, ['Solar']);
+    expect(restored.dummyDataEnabled, isFalse);
+  });
+
+  test(
+    'SharedPreferencesCatalogPersistence saves and loads catalog snapshots',
+    () async {
+      SharedPreferences.setMockInitialValues({});
+      const persistence = SharedPreferencesCatalogPersistence();
+      final product = defaultProducts.first.copyWith(
+        id: 'shared-preferences-product',
+        name: 'Shared Preferences Product',
+        imageUrl: '',
+        imageBytes: Uint8List.fromList([9, 8, 7]),
+      );
+
+      await persistence.save(
+        CatalogSnapshot(
+          products: [product],
+          noteOptions: const ['Bergamot'],
+          fragranceCharacteristicOptions: const ['Fresh'],
+          dummyDataEnabled: false,
+        ),
+      );
+
+      final restored = await persistence.load();
+
+      expect(restored, isNotNull);
+      expect(restored!.products.single.name, 'Shared Preferences Product');
+      expect(restored.products.single.imageBytes, orderedEquals([9, 8, 7]));
+      expect(restored.noteOptions, ['Bergamot']);
+      expect(restored.fragranceCharacteristicOptions, ['Fresh']);
+      expect(restored.dummyDataEnabled, isFalse);
+    },
+  );
 
   test('default products include top, middle, and base notes', () {
     expect(PerfumeStore().noteOptions, contains('Bergamot'));

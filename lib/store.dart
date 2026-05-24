@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import 'catalog.dart';
 import 'models.dart';
+import 'src/core/data/catalog_persistence.dart';
 
 class PerfumeCatalogState {
   const PerfumeCatalogState({
@@ -18,10 +21,27 @@ class PerfumeCatalogState {
           defaultEditableFragranceCharacteristicOptions(),
       dummyDataEnabled = true;
 
+  PerfumeCatalogState.fromSnapshot(CatalogSnapshot snapshot)
+    : products = List<PerfumeProduct>.of(snapshot.products),
+      noteOptions = List<String>.of(snapshot.noteOptions),
+      fragranceCharacteristicOptions = List<String>.of(
+        snapshot.fragranceCharacteristicOptions,
+      ),
+      dummyDataEnabled = snapshot.dummyDataEnabled;
+
   final List<PerfumeProduct> products;
   final List<String> noteOptions;
   final List<String> fragranceCharacteristicOptions;
   final bool dummyDataEnabled;
+
+  CatalogSnapshot toSnapshot() {
+    return CatalogSnapshot(
+      products: products,
+      noteOptions: noteOptions,
+      fragranceCharacteristicOptions: fragranceCharacteristicOptions,
+      dummyDataEnabled: dummyDataEnabled,
+    );
+  }
 
   PerfumeCatalogState copyWith({
     List<PerfumeProduct>? products,
@@ -40,7 +60,11 @@ class PerfumeCatalogState {
 }
 
 class PerfumeStore extends Cubit<PerfumeCatalogState> {
-  PerfumeStore() : super(PerfumeCatalogState.initial());
+  PerfumeStore({CatalogPersistence? persistence})
+    : _persistence = persistence,
+      super(PerfumeCatalogState.initial());
+
+  final CatalogPersistence? _persistence;
 
   List<PerfumeProduct> get products => List.unmodifiable(state.products);
 
@@ -51,6 +75,12 @@ class PerfumeStore extends Cubit<PerfumeCatalogState> {
 
   bool get dummyDataEnabled => state.dummyDataEnabled;
 
+  Future<void> load() async {
+    final snapshot = await _persistence?.load();
+    if (snapshot == null || isClosed) return;
+    emit(PerfumeCatalogState.fromSnapshot(snapshot));
+  }
+
   PerfumeProduct? byId(String id) {
     for (final product in state.products) {
       if (product.id == id) return product;
@@ -59,11 +89,11 @@ class PerfumeStore extends Cubit<PerfumeCatalogState> {
   }
 
   void add(PerfumeProduct product) {
-    emit(state.copyWith(products: [product, ...state.products]));
+    _setState(state.copyWith(products: [product, ...state.products]));
   }
 
   void update(PerfumeProduct product) {
-    emit(
+    _setState(
       state.copyWith(
         products: [
           for (final existing in state.products)
@@ -74,7 +104,7 @@ class PerfumeStore extends Cubit<PerfumeCatalogState> {
   }
 
   void delete(String id) {
-    emit(
+    _setState(
       state.copyWith(
         products: state.products
             .where((product) => product.id != id)
@@ -87,7 +117,7 @@ class PerfumeStore extends Cubit<PerfumeCatalogState> {
     final cleaned = _cleanNote(note);
     if (!_isValidNote(cleaned) || _containsNote(cleaned)) return false;
 
-    emit(
+    _setState(
       state.copyWith(noteOptions: _sortNotes([...state.noteOptions, cleaned])),
     );
     return true;
@@ -103,7 +133,7 @@ class PerfumeStore extends Cubit<PerfumeCatalogState> {
     final sameNote = _sameNote(current, next);
     if (!sameNote && _containsNote(next)) return false;
 
-    emit(
+    _setState(
       state.copyWith(
         noteOptions: _sortNotes([
           for (final note in state.noteOptions)
@@ -127,7 +157,7 @@ class PerfumeStore extends Cubit<PerfumeCatalogState> {
     final cleaned = _cleanNote(note);
     if (cleaned.isEmpty || !_containsNote(cleaned)) return false;
 
-    emit(
+    _setState(
       state.copyWith(
         noteOptions: [
           for (final note in state.noteOptions)
@@ -164,7 +194,7 @@ class PerfumeStore extends Cubit<PerfumeCatalogState> {
       return false;
     }
 
-    emit(
+    _setState(
       state.copyWith(
         fragranceCharacteristicOptions: _sortCharacteristics([
           ...state.fragranceCharacteristicOptions,
@@ -187,7 +217,7 @@ class PerfumeStore extends Cubit<PerfumeCatalogState> {
     final sameCharacteristic = _sameCharacteristic(current, next);
     if (!sameCharacteristic && _containsCharacteristic(next)) return false;
 
-    emit(
+    _setState(
       state.copyWith(
         fragranceCharacteristicOptions: _sortCharacteristics([
           for (final characteristic in state.fragranceCharacteristicOptions)
@@ -216,7 +246,7 @@ class PerfumeStore extends Cubit<PerfumeCatalogState> {
     final cleaned = _cleanCharacteristic(characteristic);
     if (cleaned.isEmpty || !_containsCharacteristic(cleaned)) return false;
 
-    emit(
+    _setState(
       state.copyWith(
         fragranceCharacteristicOptions: [
           for (final characteristic in state.fragranceCharacteristicOptions)
@@ -251,13 +281,13 @@ class PerfumeStore extends Cubit<PerfumeCatalogState> {
   }
 
   void reset() {
-    emit(PerfumeCatalogState.initial());
+    _setState(PerfumeCatalogState.initial());
   }
 
   void setDummyDataEnabled(bool enabled) {
     if (state.dummyDataEnabled == enabled) return;
 
-    emit(
+    _setState(
       state.copyWith(
         dummyDataEnabled: enabled,
         products: enabled ? List<PerfumeProduct>.of(defaultProducts) : [],
@@ -267,6 +297,13 @@ class PerfumeStore extends Cubit<PerfumeCatalogState> {
             : [],
       ),
     );
+  }
+
+  void _setState(PerfumeCatalogState nextState) {
+    emit(nextState);
+    final persistence = _persistence;
+    if (persistence == null) return;
+    unawaited(persistence.save(nextState.toSnapshot()));
   }
 
   bool _containsCharacteristic(String characteristic) {

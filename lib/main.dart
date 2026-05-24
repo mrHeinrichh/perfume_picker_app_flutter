@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -6,6 +8,7 @@ import 'package:image_picker/image_picker.dart';
 import 'auth_store.dart';
 import 'catalog.dart';
 import 'models.dart';
+import 'src/core/data/catalog_persistence.dart';
 import 'store.dart';
 
 export 'catalog.dart'
@@ -77,7 +80,10 @@ class _PerfumePickerAppState extends State<PerfumePickerApp> {
   @override
   void initState() {
     super.initState();
-    _store = PerfumeStore();
+    _store = PerfumeStore(
+      persistence: const SharedPreferencesCatalogPersistence(),
+    );
+    unawaited(_store.load());
     _authStore = AuthStore()..load();
   }
 

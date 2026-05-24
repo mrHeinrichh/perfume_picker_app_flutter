@@ -15,6 +15,7 @@ A modern Flutter perfume browsing and chooser app. Users can browse perfumes, fi
 - Admin dummy data toggle to clear or restore demo products, notes, and fragrance characteristics.
 - Admin-only product management with create, edit, and delete.
 - Admin can choose product images from the device gallery.
+- Product, note, and characteristic changes are saved locally on the device.
 - Add/edit product uses searchable note selectors for top, middle, and base notes.
 - Note names are limited to 20 characters.
 - Optional biometric or Face ID shortcut for admin login.
@@ -98,7 +99,7 @@ lib/
   models.dart       Product and filter models
   store.dart        Perfume catalog Cubit for products, notes, and characteristics
   src/
-    core/           BLoC provider scopes
+    core/           BLoC provider scopes and local persistence
     features/       Auth, browsing, results, detail, editor, and admin UI
     shared/         Reusable widgets and navigation helpers
 
@@ -111,4 +112,4 @@ release/
 
 ## Notes
 
-This is a simple local Flutter app. Product data is hard-coded and stored in memory while the app is running. It does not use a backend database.
+This is a simple local Flutter app. It does not use a backend database, but admin changes are saved on the device with SharedPreferences so products, notes, characteristics, and gallery-picked images remain after reopening the app.
